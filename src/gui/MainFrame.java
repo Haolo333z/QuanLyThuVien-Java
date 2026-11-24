@@ -110,7 +110,7 @@ public class MainFrame extends JFrame {
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(new Color(248, 250, 252));
 
-        contentPanel.add(createPlaceholderPanel("Màn hình Thống kê & Tổng quan"), "THONG_KE");
+        contentPanel.add(new ThongKePanel(), "THONG_KE");
         contentPanel.add(new SachPanel(), "SACH");
         contentPanel.add(new DocGiaPanel(), "DOC_GIA");
         contentPanel.add(new MuonTraPanel(), "MUON_TRA");
