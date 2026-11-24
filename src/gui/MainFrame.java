@@ -111,7 +111,7 @@ public class MainFrame extends JFrame {
         contentPanel.setBackground(new Color(248, 250, 252));
 
         contentPanel.add(createPlaceholderPanel("Màn hình Thống kê & Tổng quan"), "THONG_KE");
-        contentPanel.add(createPlaceholderPanel("Màn hình Quản lý Sách"), "SACH");
+        contentPanel.add(new SachPanel(), "SACH");
         contentPanel.add(new DocGiaPanel(), "DOC_GIA");
         contentPanel.add(createPlaceholderPanel("Màn hình Mượn / Trả sách"), "MUON_TRA");
         contentPanel.add(new NhanVienPanel(), "NHAN_VIEN");
