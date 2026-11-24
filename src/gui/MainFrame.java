@@ -114,7 +114,7 @@ public class MainFrame extends JFrame {
         contentPanel.add(createPlaceholderPanel("Màn hình Quản lý Sách"), "SACH");
         contentPanel.add(createPlaceholderPanel("Màn hình Quản lý Độc giả"), "DOC_GIA");
         contentPanel.add(createPlaceholderPanel("Màn hình Mượn / Trả sách"), "MUON_TRA");
-        contentPanel.add(createPlaceholderPanel("Màn hình Quản lý Nhân viên (Chỉ Admin)"), "NHAN_VIEN");
+        contentPanel.add(new NhanVienPanel(), "NHAN_VIEN");
 
         add(sidebar, BorderLayout.WEST);
         add(contentPanel, BorderLayout.CENTER);
