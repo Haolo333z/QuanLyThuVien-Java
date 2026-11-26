@@ -13,8 +13,12 @@ public class SachDTO {
     private int soLuongConLai;
     private String viTriKe;
     private boolean trangThai;
+    private String tinhTrangSach;
+    private int soLuongThanhLy;
 
     public SachDTO() {
+        this.tinhTrangSach = "Bình thường";
+        this.soLuongThanhLy = 0;
     }
 
     public SachDTO(int maSach, int maTheLoai, String tenTheLoai, String tenSach, String tacGia,
@@ -32,13 +36,35 @@ public class SachDTO {
         this.soLuongConLai = soLuongConLai;
         this.viTriKe = viTriKe;
         this.trangThai = trangThai;
+        this.tinhTrangSach = "Bình thường";
+        this.soLuongThanhLy = 0;
+    }
+
+    public SachDTO(int maSach, int maTheLoai, String tenTheLoai, String tenSach, String tacGia,
+                   String nhaXuatBan, int namXuatBan, String isbn, int soLuongTong,
+                   int soLuongConLai, String viTriKe, boolean trangThai,
+                   String tinhTrangSach, int soLuongThanhLy) {
+        this.maSach = maSach;
+        this.maTheLoai = maTheLoai;
+        this.tenTheLoai = tenTheLoai;
+        this.tenSach = tenSach;
+        this.tacGia = tacGia;
+        this.nhaXuatBan = nhaXuatBan;
+        this.namXuatBan = namXuatBan;
+        this.isbn = isbn;
+        this.soLuongTong = soLuongTong;
+        this.soLuongConLai = soLuongConLai;
+        this.viTriKe = viTriKe;
+        this.trangThai = trangThai;
+        this.tinhTrangSach = tinhTrangSach != null ? tinhTrangSach : "Bình thường";
+        this.soLuongThanhLy = soLuongThanhLy;
     }
 
     public int getMaSach() { return maSach; }
     public void setMaSach(int maSach) { this.maSach = maSach; }
 
     public int getMaTheLoai() { return maTheLoai; }
-    public void setMaTheLoai(int maTheLoai) { this.maTheLoai = maTheLoai; }
+    public void setMaTheLoai(int maTheLoai) { this.maTheLoai = maSach >= 0 ? maTheLoai : maTheLoai; }
 
     public String getTenTheLoai() { return tenTheLoai; }
     public void setTenTheLoai(String tenTheLoai) { this.tenTheLoai = tenTheLoai; }
@@ -69,4 +95,10 @@ public class SachDTO {
 
     public boolean isTrangThai() { return trangThai; }
     public void setTrangThai(boolean trangThai) { this.trangThai = trangThai; }
+
+    public String getTinhTrangSach() { return tinhTrangSach; }
+    public void setTinhTrangSach(String tinhTrangSach) { this.tinhTrangSach = tinhTrangSach; }
+
+    public int getSoLuongThanhLy() { return soLuongThanhLy; }
+    public void setSoLuongThanhLy(int soLuongThanhLy) { this.soLuongThanhLy = soLuongThanhLy; }
 }

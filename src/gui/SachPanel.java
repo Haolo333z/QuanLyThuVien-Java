@@ -16,9 +16,11 @@ public class SachPanel extends JPanel {
 
     private JTextField txtMaSach, txtTenSach, txtTacGia, txtNXB, txtNamXB, txtISBN, txtSoLuongTong, txtSoLuongCon, txtViTriKe, txtTimKiem;
     private JComboBox<TheLoaiDTO> cboTheLoai, cboLocTheLoai;
+    private JComboBox<String> cboTinhTrang;
     private JCheckBox chkLuuHanh;
     private JTable table;
     private DefaultTableModel tableModel;
+    private List<SachDTO> currentList;
 
     public SachPanel() {
         initUI();
@@ -76,6 +78,8 @@ public class SachPanel extends JPanel {
         txtSoLuongTong = new JTextField("1");
         txtSoLuongCon = new JTextField("1");
         txtViTriKe = new JTextField();
+        cboTinhTrang = new JComboBox<>(new String[]{"Bình thường", "Cần kiểm tra", "Thanh lý"});
+        cboTinhTrang.setBackground(Color.WHITE);
         chkLuuHanh = new JCheckBox("Đang lưu hành", true);
         chkLuuHanh.setBackground(Color.WHITE);
 
@@ -89,8 +93,8 @@ public class SachPanel extends JPanel {
         fieldsPanel.add(new JLabel("Vị trí kệ:"));        fieldsPanel.add(txtViTriKe);
         fieldsPanel.add(new JLabel("Số lượng tổng:"));    fieldsPanel.add(txtSoLuongTong);
         fieldsPanel.add(new JLabel("Số lượng còn lại:")); fieldsPanel.add(txtSoLuongCon);
+        fieldsPanel.add(new JLabel("Tình trạng sách:"));  fieldsPanel.add(cboTinhTrang);
         fieldsPanel.add(new JLabel("Trạng thái:"));       fieldsPanel.add(chkLuuHanh);
-        fieldsPanel.add(new JLabel(""));                  fieldsPanel.add(new JLabel(""));
 
         // Các nút thao tác
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
@@ -99,12 +103,14 @@ public class SachPanel extends JPanel {
         JButton btnThemTheLoai = createActionButton("+ Thêm thể loại", new Color(14, 116, 144));
         JButton btnThem = createActionButton("Thêm sách", new Color(22, 163, 74));
         JButton btnSua = createActionButton("Cập nhật", new Color(37, 99, 235));
+        JButton btnThanhLy = createActionButton("Thanh lý sách", new Color(185, 28, 28));
         JButton btnXoaMem = createActionButton("Ẩn / Hiện sách", new Color(234, 88, 12));
         JButton btnLamMoi = createActionButton("Làm mới", new Color(100, 116, 139));
 
         buttonPanel.add(btnThemTheLoai);
         buttonPanel.add(btnThem);
         buttonPanel.add(btnSua);
+        buttonPanel.add(btnThanhLy);
         buttonPanel.add(btnXoaMem);
         buttonPanel.add(btnLamMoi);
 
@@ -112,7 +118,10 @@ public class SachPanel extends JPanel {
         formContainer.add(buttonPanel, BorderLayout.SOUTH);
 
         // 3. BẢNG DANH SÁCH SÁCH
-        String[] columns = {"Mã", "Tên sách", "Thể loại", "Tác giả", "NXB", "Năm XB", "ISBN", "Tổng", "Còn lại", "Vị trí kệ", "Trạng thái"};
+        String[] columns = {
+                "Mã", "Tên sách", "Thể loại", "Tác giả", "NXB", "Năm XB",
+                "ISBN", "Tổng", "Còn lại", "Đã thanh lý", "Tình trạng", "Vị trí kệ", "Trạng thái"
+        };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -145,14 +154,16 @@ public class SachPanel extends JPanel {
                 txtISBN.setText(val(r, 6));
                 txtSoLuongTong.setText(val(r, 7));
                 txtSoLuongCon.setText(val(r, 8));
-                txtViTriKe.setText(val(r, 9));
-                chkLuuHanh.setSelected("Lưu hành".equals(val(r, 10)));
+                selectTinhTrang(val(r, 10));
+                txtViTriKe.setText(val(r, 11));
+                chkLuuHanh.setSelected("Lưu hành".equals(val(r, 12)));
             }
         });
 
         btnThemTheLoai.addActionListener(e -> xuLyThemTheLoai());
         btnThem.addActionListener(e -> xuLyThemSach());
         btnSua.addActionListener(e -> xuLySuaSach());
+        btnThanhLy.addActionListener(e -> xuLyThanhLySach());
         btnXoaMem.addActionListener(e -> xuLyAnHien());
         btnLamMoi.addActionListener(e -> clearForm());
         btnTim.addActionListener(e -> xuLyTimKiem());
@@ -182,6 +193,20 @@ public class SachPanel extends JPanel {
         }
     }
 
+    private void selectTinhTrang(String tinhTrang) {
+        if (tinhTrang == null || tinhTrang.trim().isEmpty()) {
+            cboTinhTrang.setSelectedItem("Bình thường");
+            return;
+        }
+        for (int i = 0; i < cboTinhTrang.getItemCount(); i++) {
+            if (cboTinhTrang.getItemAt(i).equalsIgnoreCase(tinhTrang.trim())) {
+                cboTinhTrang.setSelectedIndex(i);
+                return;
+            }
+        }
+        cboTinhTrang.setSelectedItem("Bình thường");
+    }
+
     private String val(int row, int col) {
         Object o = tableModel.getValueAt(row, col);
         return o != null ? o.toString() : "";
@@ -198,6 +223,7 @@ public class SachPanel extends JPanel {
     }
 
     private void loadData(List<SachDTO> list) {
+        this.currentList = list;
         tableModel.setRowCount(0);
         for (SachDTO s : list) {
             tableModel.addRow(new Object[]{
@@ -210,6 +236,8 @@ public class SachPanel extends JPanel {
                     s.getIsbn(),
                     s.getSoLuongTong(),
                     s.getSoLuongConLai(),
+                    s.getSoLuongThanhLy(),
+                    s.getTinhTrangSach(),
                     s.getViTriKe(),
                     s.isTrangThai() ? "Lưu hành" : "Đã ẩn"
             });
@@ -231,6 +259,18 @@ public class SachPanel extends JPanel {
 
     private SachDTO buildSachFromForm(int maSach) {
         TheLoaiDTO tl = (TheLoaiDTO) cboTheLoai.getSelectedItem();
+        String tinhTrang = cboTinhTrang.getSelectedItem() != null
+                ? cboTinhTrang.getSelectedItem().toString()
+                : "Bình thường";
+        int soLuongThanhLy = 0;
+        if (maSach > 0 && currentList != null) {
+            for (SachDTO item : currentList) {
+                if (item.getMaSach() == maSach) {
+                    soLuongThanhLy = item.getSoLuongThanhLy();
+                    break;
+                }
+            }
+        }
         return new SachDTO(
                 maSach,
                 tl != null ? tl.getMaTheLoai() : 1,
@@ -243,7 +283,9 @@ public class SachPanel extends JPanel {
                 Integer.parseInt(txtSoLuongTong.getText().trim()),
                 Integer.parseInt(txtSoLuongCon.getText().trim()),
                 txtViTriKe.getText().trim(),
-                chkLuuHanh.isSelected()
+                chkLuuHanh.isSelected(),
+                tinhTrang,
+                soLuongThanhLy
         );
     }
 
@@ -283,6 +325,55 @@ public class SachPanel extends JPanel {
         }
     }
 
+    private void xuLyThanhLySach() {
+        if (txtMaSach.getText().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một đầu sách trong bảng để thanh lý!");
+            return;
+        }
+        int maSach = Integer.parseInt(txtMaSach.getText());
+        String tenSach = txtTenSach.getText().trim();
+        int conLaiHienTai = 0;
+        try {
+            conLaiHienTai = Integer.parseInt(txtSoLuongCon.getText().trim());
+        } catch (NumberFormatException ignored) {
+        }
+
+        if (conLaiHienTai <= 0) {
+            JOptionPane.showMessageDialog(this, "Đầu sách này không còn số lượng tồn kho để thanh lý!", "Không thể thanh lý", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "Đầu sách: " + tenSach + "\nSố lượng đang còn trong kho: " + conLaiHienTai + "\nNhập số lượng cần thanh lý:",
+                "Thanh lý sách",
+                JOptionPane.PLAIN_MESSAGE
+        );
+        if (input == null) return;
+
+        try {
+            int slThanhLy = Integer.parseInt(input.trim());
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Xác nhận thanh lý " + slThanhLy + " cuốn của đầu sách [" + tenSach + "]?",
+                    "Xác nhận thanh lý",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (confirm == JOptionPane.YES_OPTION) {
+                String msg = sachBUS.thanhLySach(maSach, slThanhLy, "Thanh lý");
+                if ("OK".equals(msg)) {
+                    JOptionPane.showMessageDialog(this, "Đã ghi nhận thanh lý " + slThanhLy + " cuốn!");
+                    loadData(sachBUS.getAllSach());
+                    clearForm();
+                } else {
+                    JOptionPane.showMessageDialog(this, msg, "Không thể thanh lý", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Số lượng thanh lý phải là số nguyên!", "Sai định dạng", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
     private void xuLyAnHien() {
         if (txtMaSach.getText().isEmpty()) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn sách trong bảng!");
@@ -317,6 +408,7 @@ public class SachPanel extends JPanel {
         txtISBN.setText("");
         txtSoLuongTong.setText("1");
         txtSoLuongCon.setText("1");
+        cboTinhTrang.setSelectedItem("Bình thường");
         txtViTriKe.setText("");
         chkLuuHanh.setSelected(true);
         table.clearSelection();
