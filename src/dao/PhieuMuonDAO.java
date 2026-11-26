@@ -55,8 +55,15 @@ public class PhieuMuonDAO {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
+            int soLanGiaHanIdx = -1;
+            try {
+                soLanGiaHanIdx = rs.findColumn("SoLanGiaHan");
+            } catch (SQLException ignored) {
+            }
+
             while (rs.next()) {
                 Date ngayTra = rs.getDate("NgayTraThucTe");
+                int soLanGiaHan = soLanGiaHanIdx > 0 ? rs.getInt(soLanGiaHanIdx) : 0;
                 list.add(new PhieuMuonDTO(
                         rs.getInt("MaPhieuMuon"),
                         rs.getInt("MaDocGia"),
@@ -67,13 +74,40 @@ public class PhieuMuonDAO {
                         rs.getDate("HanTra").toLocalDate(),
                         ngayTra != null ? ngayTra.toLocalDate() : null,
                         rs.getString("TrangThai"),
-                        rs.getDouble("TongTienPhat")
+                        rs.getDouble("TongTienPhat"),
+                        soLanGiaHan
                 ));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return list;
+    }
+
+    // Gia hạn thời gian trả cho phiếu mượn đang hoạt động
+    public boolean giaHanPhieuMuon(int maPhieuMuon, LocalDate hanTraMoi) {
+        String sqlWithCount = "UPDATE PhieuMuon SET HanTra = ?, SoLanGiaHan = ISNULL(SoLanGiaHan, 0) + 1 "
+                            + "WHERE MaPhieuMuon = ? AND TrangThai <> N'Đã trả'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlWithCount)) {
+            ps.setDate(1, Date.valueOf(hanTraMoi));
+            ps.setInt(2, maPhieuMuon);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            // Fallback nếu bảng PhieuMuon chưa chạy ALTER thêm cột SoLanGiaHan
+            String sqlFallback = "UPDATE PhieuMuon SET HanTra = ? WHERE MaPhieuMuon = ? AND TrangThai <> N'Đã trả'";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sqlFallback)) {
+                ps.setDate(1, Date.valueOf(hanTraMoi));
+                ps.setInt(2, maPhieuMuon);
+                return ps.executeUpdate() > 0;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     // Lấy chi tiết sách của 1 phiếu mượn

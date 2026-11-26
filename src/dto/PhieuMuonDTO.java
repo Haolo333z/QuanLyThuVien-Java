@@ -13,6 +13,7 @@ public class PhieuMuonDTO {
     private LocalDate ngayTraThucTe;
     private String trangThai;
     private double tongTienPhat;
+    private int soLanGiaHan;
 
     public PhieuMuonDTO() {
     }
@@ -30,6 +31,23 @@ public class PhieuMuonDTO {
         this.ngayTraThucTe = ngayTraThucTe;
         this.trangThai = trangThai;
         this.tongTienPhat = tongTienPhat;
+        this.soLanGiaHan = 0;
+    }
+
+    public PhieuMuonDTO(int maPhieuMuon, int maDocGia, String tenDocGia, int maNV, String tenNV,
+                        LocalDate ngayMuon, LocalDate hanTra, LocalDate ngayTraThucTe,
+                        String trangThai, double tongTienPhat, int soLanGiaHan) {
+        this.maPhieuMuon = maPhieuMuon;
+        this.maDocGia = maDocGia;
+        this.tenDocGia = tenDocGia;
+        this.maNV = maNV;
+        this.tenNV = tenNV;
+        this.ngayMuon = ngayMuon;
+        this.hanTra = hanTra;
+        this.ngayTraThucTe = ngayTraThucTe;
+        this.trangThai = trangThai;
+        this.tongTienPhat = tongTienPhat;
+        this.soLanGiaHan = soLanGiaHan;
     }
 
     public int getMaPhieuMuon() { return maPhieuMuon; }
@@ -61,4 +79,7 @@ public class PhieuMuonDTO {
 
     public double getTongTienPhat() { return tongTienPhat; }
     public void setTongTienPhat(double tongTienPhat) { this.tongTienPhat = tongTienPhat; }
+
+    public int getSoLanGiaHan() { return soLanGiaHan; }
+    public void setSoLanGiaHan(int soLanGiaHan) { this.soLanGiaHan = soLanGiaHan; }
 }

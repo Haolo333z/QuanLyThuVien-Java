@@ -6,6 +6,7 @@ import bus.SachBUS;
 import dto.ChiTietPhieuMuonDTO;
 import dto.DocGiaDTO;
 import dto.PhieuMuonDTO;
+import dto.QuyDinhDTO;
 import dto.SachDTO;
 
 import javax.swing.*;
@@ -31,11 +32,12 @@ public class MuonTraPanel extends JPanel {
     private DefaultTableModel gioMuonModel;
     private List<ChiTietPhieuMuonDTO> gioMuon = new ArrayList<>();
 
-    // Tab 2: Trả sách
+    // Tab 2: Trả sách & Gia hạn
     private JTable tblPhieuMuon, tblChiTietTra;
     private DefaultTableModel phieuModel, chiTietModel;
     private List<PhieuMuonDTO> listPhieuDangMuon = new ArrayList<>();
     private List<ChiTietPhieuMuonDTO> listChiTietHienTai = new ArrayList<>();
+    private TitledBorder spCTBorder;
 
     public MuonTraPanel() {
         setLayout(new BorderLayout(10, 10));
@@ -56,11 +58,13 @@ public class MuonTraPanel extends JPanel {
         tabbedPane.addChangeListener(e -> {
             loadComboBoxData();
             loadPhieuDangMuon();
+            capNhatGhiChuQuyDinh();
         });
 
         add(tabbedPane, BorderLayout.CENTER);
         loadComboBoxData();
         loadPhieuDangMuon();
+        capNhatGhiChuQuyDinh();
     }
 
     private JPanel createMuonTab() {
@@ -72,21 +76,25 @@ public class MuonTraPanel extends JPanel {
         formPanel.setBackground(Color.WHITE);
         formPanel.setBorder(new TitledBorder("Thông tin phiếu mượn"));
 
+        QuyDinhDTO qd = muonTraBUS.getQuyDinhHienTai();
+        int soNgayMacDinh = qd.getSoNgayMuonMacDinh() > 0 ? qd.getSoNgayMuonMacDinh() : 14;
+        int maxSl = qd.getSoSachToiDa() > 0 ? qd.getSoSachToiDa() : MuonTraBUS.MAX_SACH_MUON;
+
         cboDocGia = new JComboBox<>();
         cboSach = new JComboBox<>();
-        spnSoLuong = new JSpinner(new SpinnerNumberModel(1, 1, 5, 1));
-        txtHanTra = new JTextField(LocalDate.now().plusDays(14).toString());
+        spnSoLuong = new JSpinner(new SpinnerNumberModel(1, 1, maxSl, 1));
+        txtHanTra = new JTextField(LocalDate.now().plusDays(soNgayMacDinh).toString());
 
         JButton btnThemVaoGio = createBtn("Thêm vào danh sách", new Color(37, 99, 235));
         JButton btnXoaGio = createBtn("Xóa danh sách", new Color(100, 116, 139));
         JButton btnTaiLaiDuLieu = createBtn("Làm mới DS", new Color(14, 116, 144));
 
-        formPanel.add(new JLabel("Chọn độc giả:"));      formPanel.add(cboDocGia);
+        formPanel.add(new JLabel("Chọn độc giả:"));          formPanel.add(cboDocGia);
         formPanel.add(new JLabel("Hạn trả (yyyy-MM-dd):")); formPanel.add(txtHanTra);
-        formPanel.add(new JLabel("Chọn sách:"));         formPanel.add(cboSach);
-        formPanel.add(new JLabel("Số lượng mượn:"));     formPanel.add(spnSoLuong);
-        formPanel.add(btnTaiLaiDuLieu);                  formPanel.add(btnXoaGio);
-        formPanel.add(new JLabel(""));                   formPanel.add(btnThemVaoGio);
+        formPanel.add(new JLabel("Chọn sách:"));             formPanel.add(cboSach);
+        formPanel.add(new JLabel("Số lượng mượn:"));         formPanel.add(spnSoLuong);
+        formPanel.add(btnTaiLaiDuLieu);                      formPanel.add(btnXoaGio);
+        formPanel.add(new JLabel(""));                       formPanel.add(btnThemVaoGio);
 
         gioMuonModel = new DefaultTableModel(new String[]{"Mã sách", "Tên sách", "Số lượng"}, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -101,7 +109,13 @@ public class MuonTraPanel extends JPanel {
         panel.add(new JScrollPane(tblGio), BorderLayout.CENTER);
         panel.add(btnLapPhieu, BorderLayout.SOUTH);
 
-        btnTaiLaiDuLieu.addActionListener(e -> loadComboBoxData());
+        btnTaiLaiDuLieu.addActionListener(e -> {
+            loadComboBoxData();
+            QuyDinhDTO currentQd = muonTraBUS.getQuyDinhHienTai();
+            int days = currentQd.getSoNgayMuonMacDinh() > 0 ? currentQd.getSoNgayMuonMacDinh() : 14;
+            txtHanTra.setText(LocalDate.now().plusDays(days).toString());
+        });
+
         btnXoaGio.addActionListener(e -> {
             gioMuon.clear();
             gioMuonModel.setRowCount(0);
@@ -158,13 +172,14 @@ public class MuonTraPanel extends JPanel {
         panel.setBackground(Color.WHITE);
 
         // Bảng trên: Danh sách phiếu đang mượn
-        phieuModel = new DefaultTableModel(new String[]{"Mã phiếu", "Độc giả", "Nhân viên", "Ngày mượn", "Hạn trả", "Trạng thái"}, 0) {
+        phieuModel = new DefaultTableModel(
+                new String[]{"Mã phiếu", "Độc giả", "Nhân viên", "Ngày mượn", "Hạn trả", "Đã gia hạn", "Trạng thái"}, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         tblPhieuMuon = new JTable(phieuModel);
         tblPhieuMuon.setRowHeight(28);
         JScrollPane spPhieu = new JScrollPane(tblPhieuMuon);
-        spPhieu.setBorder(new TitledBorder("Danh sách phiếu đang mượn (Click chọn 1 phiếu)"));
+        spPhieu.setBorder(new TitledBorder("Danh sách phiếu đang mượn (Click chọn 1 phiếu để trả hoặc gia hạn)"));
 
         // Bảng dưới: Chi tiết sách cần trả (Cho phép chọn Tình trạng trả)
         chiTietModel = new DefaultTableModel(new String[]{"Mã CT", "Mã sách", "Tên sách", "Số lượng", "Tình trạng khi trả (Click để đổi)"}, 0) {
@@ -175,16 +190,26 @@ public class MuonTraPanel extends JPanel {
         JComboBox<String> cboTinhTrang = new JComboBox<>(new String[]{"Bình thường", "Hư hỏng", "Mất sách"});
         tblChiTietTra.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(cboTinhTrang));
         JScrollPane spCT = new JScrollPane(tblChiTietTra);
-        spCT.setBorder(new TitledBorder("Chi tiết sách trả (Phạt trễ: 5.000đ/ngày | Hư hỏng: 50.000đ/cuốn | Mất sách: 150.000đ/cuốn)"));
+        spCTBorder = new TitledBorder("Chi tiết sách trả");
+        spCT.setBorder(spCTBorder);
 
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, spPhieu, spCT);
         split.setDividerLocation(240);
 
+        JPanel actionPanel = new JPanel(new GridLayout(1, 2, 12, 0));
+        actionPanel.setBackground(Color.WHITE);
+
+        JButton btnGiaHanPhieu = createBtn("GIA HẠN PHIẾU MƯỢN", new Color(37, 99, 235));
+        btnGiaHanPhieu.setPreferredSize(new Dimension(0, 42));
+
         JButton btnXacNhanTra = createBtn("XÁC NHẬN TRẢ SÁCH & TÍNH TIỀN PHẠT", new Color(234, 88, 12));
         btnXacNhanTra.setPreferredSize(new Dimension(0, 42));
 
+        actionPanel.add(btnGiaHanPhieu);
+        actionPanel.add(btnXacNhanTra);
+
         panel.add(split, BorderLayout.CENTER);
-        panel.add(btnXacNhanTra, BorderLayout.SOUTH);
+        panel.add(actionPanel, BorderLayout.SOUTH);
 
         tblPhieuMuon.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && tblPhieuMuon.getSelectedRow() != -1) {
@@ -196,6 +221,27 @@ public class MuonTraPanel extends JPanel {
                             ct.getMaChiTiet(), ct.getMaSach(), ct.getTenSach(), ct.getSoLuong(), "Bình thường"
                     });
                 }
+            }
+        });
+
+        btnGiaHanPhieu.addActionListener(e -> {
+            int row = tblPhieuMuon.getSelectedRow();
+            if (row == -1 || row >= listPhieuDangMuon.size()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn một phiếu mượn cần gia hạn!");
+                return;
+            }
+            PhieuMuonDTO pm = listPhieuDangMuon.get(row);
+            String res = muonTraBUS.giaHanPhieuMuon(pm);
+            if (res != null && res.startsWith("OK:")) {
+                String hanMoi = res.substring(3);
+                JOptionPane.showMessageDialog(this,
+                        "Gia hạn phiếu #" + pm.getMaPhieuMuon() + " thành công!\nHạn trả mới: " + hanMoi,
+                        "Gia hạn thành công", JOptionPane.INFORMATION_MESSAGE);
+                loadPhieuDangMuon();
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        res != null ? res : "Không thể gia hạn phiếu mượn!",
+                        "Không thể gia hạn", JOptionPane.WARNING_MESSAGE);
             }
         });
 
@@ -229,6 +275,20 @@ public class MuonTraPanel extends JPanel {
         return panel;
     }
 
+    private void capNhatGhiChuQuyDinh() {
+        if (spCTBorder != null) {
+            QuyDinhDTO qd = muonTraBUS.getQuyDinhHienTai();
+            spCTBorder.setTitle(String.format(
+                    "Chi tiết sách trả (Phạt trễ: %,.0fđ/ngày | Hư hỏng: %,.0fđ/cuốn | Mất sách: %,.0fđ/cuốn | Gia hạn +%d ngày)",
+                    (double) qd.getPhatTreMoiNgay(),
+                    (double) qd.getPhatHuHong(),
+                    (double) qd.getPhatMatSach(),
+                    qd.getSoNgayGiaHanMacDinh()
+            ));
+            repaint();
+        }
+    }
+
     private void loadComboBoxData() {
         cboDocGia.removeAllItems();
         listDocGia = docGiaBUS.getAll();
@@ -252,7 +312,7 @@ public class MuonTraPanel extends JPanel {
         for (PhieuMuonDTO pm : listPhieuDangMuon) {
             phieuModel.addRow(new Object[]{
                     pm.getMaPhieuMuon(), pm.getTenDocGia(), pm.getTenNV(),
-                    pm.getNgayMuon(), pm.getHanTra(), pm.getTrangThai()
+                    pm.getNgayMuon(), pm.getHanTra(), pm.getSoLanGiaHan(), pm.getTrangThai()
             });
         }
     }
