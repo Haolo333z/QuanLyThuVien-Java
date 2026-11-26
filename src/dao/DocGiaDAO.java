@@ -61,6 +61,49 @@ public class DocGiaDAO {
         return null;
     }
 
+    public DocGiaDTO findByPhoneOrEmail(String sdt, String email) {
+        String cleanPhone = sdt != null ? sdt.trim() : "";
+        String cleanEmail = email != null ? email.trim() : "";
+
+        boolean hasPhone = !cleanPhone.isEmpty();
+        boolean hasEmail = !cleanEmail.isEmpty();
+
+        if (!hasPhone && !hasEmail) {
+            return null;
+        }
+
+        StringBuilder sql = new StringBuilder("SELECT TOP 1 * FROM DocGia WHERE ");
+        if (hasPhone && hasEmail) {
+            sql.append("(SoDienThoai = ? OR LOWER(Email) = LOWER(?))");
+        } else if (hasPhone) {
+            sql.append("SoDienThoai = ?");
+        } else {
+            sql.append("LOWER(Email) = LOWER(?)");
+        }
+        sql.append(" ORDER BY TrangThai DESC, MaDocGia DESC");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            if (hasPhone && hasEmail) {
+                ps.setString(1, cleanPhone);
+                ps.setString(2, cleanEmail);
+            } else if (hasPhone) {
+                ps.setString(1, cleanPhone);
+            } else {
+                ps.setString(1, cleanEmail);
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public boolean insert(DocGiaDTO dg) {
         String sql = "INSERT INTO DocGia (HoTen, NgaySinh, GioiTinh, SoDienThoai, Email, DiaChi, NgayLapThe, NgayHetHan, TrangThai) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";

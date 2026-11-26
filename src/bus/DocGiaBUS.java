@@ -21,9 +21,31 @@ public class DocGiaBUS {
     }
 
     public String addDocGia(DocGiaDTO dg) {
-        if (dg.getHoTen().isEmpty() || dg.getSoDienThoai().isEmpty()) {
+        String hoTen = dg.getHoTen() != null ? dg.getHoTen().trim() : "";
+        String sdt = dg.getSoDienThoai() != null ? dg.getSoDienThoai().trim() : "";
+        String email = dg.getEmail() != null ? dg.getEmail().trim() : "";
+
+        if (hoTen.isEmpty() || sdt.isEmpty()) {
             return "Vui lòng nhập đầy đủ Họ tên và Số điện thoại!";
         }
+
+        dg.setHoTen(hoTen);
+        dg.setSoDienThoai(sdt);
+        dg.setEmail(email);
+
+        DocGiaDTO existing = docGiaDAO.findByPhoneOrEmail(sdt, email);
+        if (existing != null) {
+            if (existing.isTrangThai()) {
+                return "Số điện thoại hoặc email này đã có thẻ đang hoạt động (Mã ĐG: "
+                        + existing.getMaDocGia() + " - " + existing.getHoTen()
+                        + "). Vui lòng dùng chức năng Gia hạn hoặc Cập nhật!";
+            } else {
+                return "Số điện thoại hoặc email này đã có thẻ đang bị KHÓA (Mã ĐG: "
+                        + existing.getMaDocGia() + " - " + existing.getHoTen()
+                        + "). Vui lòng mở khóa thẻ cũ thay vì lập thẻ mới!";
+            }
+        }
+
         LocalDate today = LocalDate.now();
         dg.setNgayLapThe(today);
         dg.setNgayHetHan(today.plusYears(1)); // Tự động +1 năm
@@ -31,9 +53,18 @@ public class DocGiaBUS {
     }
 
     public String updateDocGia(DocGiaDTO dg) {
-        if (dg.getHoTen().isEmpty() || dg.getSoDienThoai().isEmpty()) {
+        String hoTen = dg.getHoTen() != null ? dg.getHoTen().trim() : "";
+        String sdt = dg.getSoDienThoai() != null ? dg.getSoDienThoai().trim() : "";
+        String email = dg.getEmail() != null ? dg.getEmail().trim() : "";
+
+        if (hoTen.isEmpty() || sdt.isEmpty()) {
             return "Họ tên và Số điện thoại không được để trống!";
         }
+
+        dg.setHoTen(hoTen);
+        dg.setSoDienThoai(sdt);
+        dg.setEmail(email);
+
         return docGiaDAO.update(dg) ? "OK" : "Cập nhật độc giả thất bại!";
     }
 
