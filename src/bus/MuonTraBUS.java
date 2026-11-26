@@ -36,8 +36,20 @@ public class MuonTraBUS {
     }
 
     public String lapPhieuMuon(int maDocGia, int maNV, LocalDate hanTra, List<ChiTietPhieuMuonDTO> dsSach) {
+        if (maNV <= 0) {
+            return "Không xác định được nhân viên lập phiếu (vui lòng đăng nhập lại)!";
+        }
         if (dsSach == null || dsSach.isEmpty()) {
             return "Vui lòng chọn ít nhất 1 cuốn sách để mượn!";
+        }
+        java.util.Set<Integer> seenMaSach = new java.util.HashSet<>();
+        for (ChiTietPhieuMuonDTO ct : dsSach) {
+            if (ct.getSoLuong() <= 0) {
+                return "Số lượng mượn của mỗi đầu sách phải lớn hơn 0!";
+            }
+            if (!seenMaSach.add(ct.getMaSach())) {
+                return "Danh sách mượn bị trùng đầu sách (Mã sách: " + ct.getMaSach() + ")!";
+            }
         }
         if (hanTra == null || hanTra.isBefore(LocalDate.now())) {
             return "Hạn trả không được nhỏ hơn ngày hiện tại!";
@@ -52,6 +64,9 @@ public class MuonTraBUS {
         if (!dg.isTrangThai()) return "Thẻ độc giả đang bị KHÓA, không thể mượn sách!";
         if (dg.getNgayHetHan().isBefore(LocalDate.now())) {
             return "Thẻ độc giả đã HẾT HẠN (" + dg.getNgayHetHan() + "), vui lòng gia hạn trước khi mượn!";
+        }
+        if (hanTra.isAfter(dg.getNgayHetHan())) {
+            return "Hạn trả (" + hanTra + ") không được vượt quá ngày hết hạn thẻ độc giả (" + dg.getNgayHetHan() + ")!";
         }
 
         // 2. Kiểm tra có phiếu quá hạn chưa trả không
@@ -108,6 +123,9 @@ public class MuonTraBUS {
     }
 
     public double tinhTienPhatVaTraSach(PhieuMuonDTO pm, List<ChiTietPhieuMuonDTO> dsTra) {
+        if (pm == null || dsTra == null || dsTra.isEmpty() || "Đã trả".equalsIgnoreCase(pm.getTrangThai())) {
+            return -1;
+        }
         QuyDinhDTO qd = getQuyDinhHienTai();
         double phatTreMoiNgay = qd.getPhatTreMoiNgay() > 0 ? qd.getPhatTreMoiNgay() : PHAT_TRE_MOI_NGAY;
         double phatHuHong = qd.getPhatHuHong() > 0 ? qd.getPhatHuHong() : PHAT_HU_HONG;

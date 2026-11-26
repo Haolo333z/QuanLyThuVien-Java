@@ -11,7 +11,7 @@ public class QuyDinhDAO {
 
     public QuyDinhDTO getQuyDinh() {
         String sql = "SELECT TOP 1 * FROM QuyDinh ORDER BY MaQuyDinh ASC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) {
@@ -35,7 +35,7 @@ public class QuyDinhDAO {
     public boolean updateQuyDinh(QuyDinhDTO qd) {
         String sql = "UPDATE QuyDinh SET SoNgayMuonMacDinh = ?, SoNgayGiaHanMacDinh = ?, SoLanGiaHanToiDa = ?, "
                    + "SoSachToiDa = ?, PhatTreMoiNgay = ?, PhatHuHong = ?, PhatMatSach = ? WHERE MaQuyDinh = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, qd.getSoNgayMuonMacDinh());
             ps.setInt(2, qd.getSoNgayGiaHanMacDinh());

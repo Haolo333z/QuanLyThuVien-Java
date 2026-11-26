@@ -36,9 +36,11 @@ CREATE TABLE Sach (
     ISBN VARCHAR(20) UNIQUE,
     SoLuongTong INT NOT NULL CHECK (SoLuongTong >= 0),
     SoLuongConLai INT NOT NULL CHECK (SoLuongConLai >= 0),
+    SoLuongThanhLy INT NOT NULL DEFAULT 0 CHECK (SoLuongThanhLy >= 0),
+    TinhTrangSach NVARCHAR(50) NOT NULL DEFAULT N'Bình thường',
     ViTriKe NVARCHAR(50),
     TrangThai BIT NOT NULL DEFAULT 1, -- 1: Đang lưu hành, 0: Đã ẩn/xóa mềm
-    CONSTRAINT CK_Sach_SoLuong CHECK (SoLuongConLai <= SoLuongTong)
+    CONSTRAINT CK_Sach_SoLuong CHECK (SoLuongConLai + SoLuongThanhLy <= SoLuongTong)
 );
 GO
 
@@ -66,6 +68,7 @@ CREATE TABLE PhieuMuon (
     NgayMuon DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     HanTra DATE NOT NULL,
     NgayTraThucTe DATE NULL,
+    SoLanGiaHan INT NOT NULL DEFAULT 0 CHECK (SoLanGiaHan >= 0),
     TrangThai NVARCHAR(30) NOT NULL DEFAULT N'Đang mượn', -- Đang mượn, Đã trả, Quá hạn
     TongTienPhat DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (TongTienPhat >= 0),
     CONSTRAINT CK_PhieuMuon_HanTra CHECK (HanTra >= NgayMuon)
@@ -81,6 +84,19 @@ CREATE TABLE ChiTietPhieuMuon (
     TinhTrangKhiMuon NVARCHAR(100) DEFAULT N'Bình thường',
     TinhTrangKhiTra NVARCHAR(100) NULL, -- Bình thường, Hư hỏng, Mất sách
     TienPhat DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (TienPhat >= 0)
+);
+GO
+
+-- 7. Bảng QuyDinh
+CREATE TABLE QuyDinh (
+    MaQuyDinh INT IDENTITY(1,1) PRIMARY KEY,
+    SoNgayMuonMacDinh INT NOT NULL CHECK (SoNgayMuonMacDinh > 0),
+    SoNgayGiaHanMacDinh INT NOT NULL CHECK (SoNgayGiaHanMacDinh > 0),
+    SoLanGiaHanToiDa INT NOT NULL CHECK (SoLanGiaHanToiDa >= 0),
+    SoSachToiDa INT NOT NULL CHECK (SoSachToiDa > 0),
+    PhatTreMoiNgay BIGINT NOT NULL CHECK (PhatTreMoiNgay >= 0),
+    PhatHuHong BIGINT NOT NULL CHECK (PhatHuHong >= 0),
+    PhatMatSach BIGINT NOT NULL CHECK (PhatMatSach >= 0)
 );
 GO
 
@@ -105,4 +121,7 @@ INSERT INTO Sach (MaTheLoai, TenSach, TacGia, NhaXuatBan, NamXuatBan, ISBN, SoLu
 INSERT INTO DocGia (HoTen, NgaySinh, GioiTinh, SoDienThoai, Email, DiaChi, NgayLapThe, NgayHetHan, TrangThai) VALUES
 (N'Trần Minh Khôi', '2004-05-12', N'Nam', '0911223344', 'khoi.tm@gmail.com', N'Ninh Kiều, Cần Thơ', '2026-01-10', '2027-01-10', 1),
 (N'Nguyễn Thị Lan Anh', '2005-08-20', N'Nữ', '0922334455', 'lananh@gmail.com', N'Cái Răng, Cần Thơ', '2025-01-01', '2026-01-01', 1); -- Thẻ đã hết hạn để test nghiệp vụ mượn
+
+INSERT INTO QuyDinh (SoNgayMuonMacDinh, SoNgayGiaHanMacDinh, SoLanGiaHanToiDa, SoSachToiDa, PhatTreMoiNgay, PhatHuHong, PhatMatSach) VALUES
+(14, 7, 1, 5, 5000, 50000, 150000);
 GO

@@ -64,7 +64,7 @@ public class SachDTO {
     public void setMaSach(int maSach) { this.maSach = maSach; }
 
     public int getMaTheLoai() { return maTheLoai; }
-    public void setMaTheLoai(int maTheLoai) { this.maTheLoai = maSach >= 0 ? maTheLoai : maTheLoai; }
+    public void setMaTheLoai(int maTheLoai) { this.maTheLoai = maTheLoai; }
 
     public String getTenTheLoai() { return tenTheLoai; }
     public void setTenTheLoai(String tenTheLoai) { this.tenTheLoai = tenTheLoai; }

@@ -27,7 +27,7 @@ public class ThongKeDAO {
 
     public double getTongTienPhat() {
         String sql = "SELECT ISNULL(SUM(TongTienPhat), 0) FROM PhieuMuon";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) return rs.getDouble(1);
@@ -44,7 +44,7 @@ public class ThongKeDAO {
                    + "JOIN Sach s ON ct.MaSach = s.MaSach "
                    + "GROUP BY s.MaSach, s.TenSach, s.TacGia "
                    + "ORDER BY TongLuotMuon DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -69,7 +69,7 @@ public class ThongKeDAO {
                    + "JOIN DocGia dg ON pm.MaDocGia = dg.MaDocGia "
                    + "WHERE pm.TrangThai <> N'Đã trả' AND pm.HanTra < CAST(GETDATE() AS DATE) "
                    + "ORDER BY SoNgayTre DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -89,7 +89,7 @@ public class ThongKeDAO {
     }
 
     private int querySingleInt(String sql) {
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) return rs.getInt(1);

@@ -1,6 +1,7 @@
 package gui;
 
 import com.formdev.flatlaf.FlatLightLaf;
+import dto.NhanVienDTO;
 import utils.Session;
 
 import javax.swing.*;
@@ -18,12 +19,29 @@ public class MainFrame extends JFrame {
     private JButton btnNhanVien;
     private JButton btnDangXuat;
 
+    private NhanVienDTO currentUser;
     private String hoTen;
     private String vaiTro; // "Admin" hoặc "ThuThu"
+
+    public MainFrame(NhanVienDTO currentUser) {
+        this.currentUser = currentUser;
+        if (currentUser != null) {
+            Session.setCurrentUser(currentUser);
+            this.hoTen = currentUser.getHoTen();
+            this.vaiTro = currentUser.getVaiTro();
+        } else {
+            this.hoTen = "Người dùng";
+            this.vaiTro = "ThuThu";
+        }
+
+        initUI();
+        applyPermissions();
+    }
 
     public MainFrame(String hoTen, String vaiTro) {
         this.hoTen = hoTen;
         this.vaiTro = vaiTro;
+        this.currentUser = Session.getCurrentUser();
 
         initUI();
         applyPermissions();
@@ -175,6 +193,9 @@ public class MainFrame extends JFrame {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        SwingUtilities.invokeLater(() -> new MainFrame("Lê Hữu Hào", "Admin").setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            NhanVienDTO demoUser = new NhanVienDTO(1, "Lê Hữu Hào", "admin", "", "Admin", "", "", true);
+            new MainFrame(demoUser).setVisible(true);
+        });
     }
 }

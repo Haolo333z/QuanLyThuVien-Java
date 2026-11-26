@@ -47,6 +47,9 @@ public class SachBUS {
         if (s.getSoLuongConLai() > s.getSoLuongTong()) {
             return "Số lượng còn lại không được lớn hơn số lượng tổng!";
         }
+        if (s.getSoLuongConLai() + s.getSoLuongThanhLy() > s.getSoLuongTong()) {
+            return "Tổng số lượng còn lại và đã thanh lý không được lớn hơn số lượng tổng!";
+        }
         if (sachDAO.isIsbnExists(s.getIsbn(), s.getMaSach())) {
             return "Mã ISBN này đã tồn tại trong hệ thống!";
         }

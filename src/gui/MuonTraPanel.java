@@ -5,9 +5,11 @@ import bus.MuonTraBUS;
 import bus.SachBUS;
 import dto.ChiTietPhieuMuonDTO;
 import dto.DocGiaDTO;
+import dto.NhanVienDTO;
 import dto.PhieuMuonDTO;
 import dto.QuyDinhDTO;
 import dto.SachDTO;
+import utils.Session;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -144,11 +146,17 @@ public class MuonTraPanel extends JPanel {
         btnLapPhieu.addActionListener(e -> {
             int dgIdx = cboDocGia.getSelectedIndex();
             if (dgIdx < 0 || dgIdx >= listDocGia.size()) return;
+            NhanVienDTO currentUser = Session.getCurrentUser();
+            if (currentUser == null || currentUser.getMaNV() <= 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Không xác định được nhân viên đang đăng nhập! Vui lòng đăng nhập lại.",
+                        "Lỗi phiên đăng nhập", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             try {
                 LocalDate hanTra = LocalDate.parse(txtHanTra.getText().trim());
                 int maDG = listDocGia.get(dgIdx).getMaDocGia();
-                // MaNV = 1 (Admin mặc định)
-                String msg = muonTraBUS.lapPhieuMuon(maDG, 1, hanTra, gioMuon);
+                String msg = muonTraBUS.lapPhieuMuon(maDG, currentUser.getMaNV(), hanTra, gioMuon);
                 if ("OK".equals(msg)) {
                     JOptionPane.showMessageDialog(this, "Lập phiếu mượn thành công và đã trừ tồn kho!");
                     gioMuon.clear();
@@ -226,11 +234,15 @@ public class MuonTraPanel extends JPanel {
 
         btnGiaHanPhieu.addActionListener(e -> {
             int row = tblPhieuMuon.getSelectedRow();
-            if (row == -1 || row >= listPhieuDangMuon.size()) {
+            if (row == -1) {
                 JOptionPane.showMessageDialog(this, "Vui lòng chọn một phiếu mượn cần gia hạn!");
                 return;
             }
-            PhieuMuonDTO pm = listPhieuDangMuon.get(row);
+            int modelRow = tblPhieuMuon.convertRowIndexToModel(row);
+            if (modelRow < 0 || modelRow >= listPhieuDangMuon.size()) {
+                return;
+            }
+            PhieuMuonDTO pm = listPhieuDangMuon.get(modelRow);
             String res = muonTraBUS.giaHanPhieuMuon(pm);
             if (res != null && res.startsWith("OK:")) {
                 String hanMoi = res.substring(3);
@@ -251,10 +263,15 @@ public class MuonTraPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Vui lòng chọn một phiếu mượn cần trả!");
                 return;
             }
+            int modelRow = tblPhieuMuon.convertRowIndexToModel(row);
+            if (modelRow < 0 || modelRow >= listPhieuDangMuon.size() || listChiTietHienTai == null || listChiTietHienTai.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Không có chi tiết sách để trả!");
+                return;
+            }
             if (tblChiTietTra.isEditing()) {
                 tblChiTietTra.getCellEditor().stopCellEditing();
             }
-            PhieuMuonDTO pm = listPhieuDangMuon.get(row);
+            PhieuMuonDTO pm = listPhieuDangMuon.get(modelRow);
             for (int i = 0; i < listChiTietHienTai.size(); i++) {
                 String tt = chiTietModel.getValueAt(i, 4).toString();
                 listChiTietHienTai.get(i).setTinhTrangKhiTra(tt);
@@ -276,8 +293,16 @@ public class MuonTraPanel extends JPanel {
     }
 
     private void capNhatGhiChuQuyDinh() {
+        QuyDinhDTO qd = muonTraBUS.getQuyDinhHienTai();
+        if (spnSoLuong != null && spnSoLuong.getModel() instanceof SpinnerNumberModel) {
+            int maxSl = qd.getSoSachToiDa() > 0 ? qd.getSoSachToiDa() : MuonTraBUS.MAX_SACH_MUON;
+            SpinnerNumberModel model = (SpinnerNumberModel) spnSoLuong.getModel();
+            model.setMaximum(maxSl);
+            if ((int) model.getValue() > maxSl) {
+                model.setValue(maxSl);
+            }
+        }
         if (spCTBorder != null) {
-            QuyDinhDTO qd = muonTraBUS.getQuyDinhHienTai();
             spCTBorder.setTitle(String.format(
                     "Chi tiết sách trả (Phạt trễ: %,.0fđ/ngày | Hư hỏng: %,.0fđ/cuốn | Mất sách: %,.0fđ/cuốn | Gia hạn +%d ngày)",
                     (double) qd.getPhatTreMoiNgay(),

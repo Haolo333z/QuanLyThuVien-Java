@@ -13,7 +13,7 @@ public class NhanVienDAO {
 
     public NhanVienDTO checkLogin(String tenDangNhap, String matKhau) {
         String sql = "SELECT * FROM NhanVien WHERE TenDangNhap = ? AND MatKhauHash = ? AND TrangThai = 1";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, tenDangNhap);
             ps.setString(2, matKhau);
@@ -31,7 +31,7 @@ public class NhanVienDAO {
     public List<NhanVienDTO> getAll() {
         List<NhanVienDTO> list = new ArrayList<>();
         String sql = "SELECT * FROM NhanVien ORDER BY MaNV DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -46,7 +46,7 @@ public class NhanVienDAO {
     public List<NhanVienDTO> search(String keyword) {
         List<NhanVienDTO> list = new ArrayList<>();
         String sql = "SELECT * FROM NhanVien WHERE HoTen LIKE ? OR TenDangNhap LIKE ? OR SoDienThoai LIKE ? ORDER BY MaNV DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             String pattern = "%" + keyword + "%";
             ps.setString(1, pattern);
@@ -65,7 +65,7 @@ public class NhanVienDAO {
 
     public boolean isUsernameExists(String tenDangNhap) {
         String sql = "SELECT 1 FROM NhanVien WHERE TenDangNhap = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, tenDangNhap);
             try (ResultSet rs = ps.executeQuery()) {
@@ -80,7 +80,7 @@ public class NhanVienDAO {
     public boolean insert(NhanVienDTO nv) {
         String sql = "INSERT INTO NhanVien (HoTen, TenDangNhap, MatKhauHash, VaiTro, SoDienThoai, Email, TrangThai) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, nv.getHoTen());
             ps.setString(2, nv.getTenDangNhap());
@@ -99,7 +99,7 @@ public class NhanVienDAO {
     public boolean update(NhanVienDTO nv) {
         String sql = "UPDATE NhanVien SET HoTen = ?, MatKhauHash = ?, VaiTro = ?, SoDienThoai = ?, Email = ?, TrangThai = ? "
                    + "WHERE MaNV = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, nv.getHoTen());
             ps.setString(2, nv.getMatKhauHash());
@@ -117,7 +117,7 @@ public class NhanVienDAO {
 
     public boolean updateTrangThai(int maNV, boolean trangThai) {
         String sql = "UPDATE NhanVien SET TrangThai = ? WHERE MaNV = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setBoolean(1, trangThai);
             ps.setInt(2, maNV);

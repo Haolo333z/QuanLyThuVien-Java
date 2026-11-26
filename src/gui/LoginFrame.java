@@ -3,6 +3,7 @@ package gui;
 import bus.NhanVienBUS;
 import com.formdev.flatlaf.FlatLightLaf;
 import dto.NhanVienDTO;
+import utils.Session;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -84,9 +85,10 @@ public class LoginFrame extends JFrame {
 
         NhanVienDTO nv = nhanVienBUS.dangNhap(user, pass);
         if (nv != null) {
+            Session.setCurrentUser(nv);
             JOptionPane.showMessageDialog(this, "Đăng nhập thành công! Xin chào " + nv.getHoTen());
             dispose(); // Đóng form Login
-            new MainFrame(nv.getHoTen(), nv.getVaiTro()).setVisible(true);
+            new MainFrame(nv).setVisible(true);
         } else {
             JOptionPane.showMessageDialog(this, "Sai tài khoản, mật khẩu hoặc tài khoản đã bị khóa!",
                     "Đăng nhập thất bại", JOptionPane.ERROR_MESSAGE);

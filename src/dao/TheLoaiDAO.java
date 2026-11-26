@@ -14,7 +14,7 @@ public class TheLoaiDAO {
     public List<TheLoaiDTO> getAll() {
         List<TheLoaiDTO> list = new ArrayList<>();
         String sql = "SELECT * FROM TheLoai ORDER BY MaTheLoai ASC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -32,7 +32,7 @@ public class TheLoaiDAO {
 
     public boolean insert(TheLoaiDTO tl) {
         String sql = "INSERT INTO TheLoai (TenTheLoai, MoTa) VALUES (?, ?)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, tl.getTenTheLoai());
             ps.setString(2, tl.getMoTa());

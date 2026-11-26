@@ -13,7 +13,7 @@ public class DocGiaDAO {
     public List<DocGiaDTO> getAll() {
         List<DocGiaDTO> list = new ArrayList<>();
         String sql = "SELECT * FROM DocGia ORDER BY MaDocGia DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -28,7 +28,7 @@ public class DocGiaDAO {
     public List<DocGiaDTO> search(String keyword) {
         List<DocGiaDTO> list = new ArrayList<>();
         String sql = "SELECT * FROM DocGia WHERE HoTen LIKE ? OR SoDienThoai LIKE ? OR Email LIKE ? ORDER BY MaDocGia DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             String pattern = "%" + keyword + "%";
             ps.setString(1, pattern);
@@ -47,7 +47,7 @@ public class DocGiaDAO {
 
     public DocGiaDTO getById(int maDocGia) {
         String sql = "SELECT * FROM DocGia WHERE MaDocGia = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, maDocGia);
             try (ResultSet rs = ps.executeQuery()) {
@@ -82,7 +82,7 @@ public class DocGiaDAO {
         }
         sql.append(" ORDER BY TrangThai DESC, MaDocGia DESC");
 
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             if (hasPhone && hasEmail) {
                 ps.setString(1, cleanPhone);
@@ -107,7 +107,7 @@ public class DocGiaDAO {
     public boolean insert(DocGiaDTO dg) {
         String sql = "INSERT INTO DocGia (HoTen, NgaySinh, GioiTinh, SoDienThoai, Email, DiaChi, NgayLapThe, NgayHetHan, TrangThai) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, dg.getHoTen());
             if (dg.getNgaySinh() != null) ps.setDate(2, Date.valueOf(dg.getNgaySinh()));
@@ -129,7 +129,7 @@ public class DocGiaDAO {
     public boolean update(DocGiaDTO dg) {
         String sql = "UPDATE DocGia SET HoTen = ?, NgaySinh = ?, GioiTinh = ?, SoDienThoai = ?, Email = ?, DiaChi = ?, TrangThai = ? "
                    + "WHERE MaDocGia = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, dg.getHoTen());
             if (dg.getNgaySinh() != null) ps.setDate(2, Date.valueOf(dg.getNgaySinh()));
@@ -149,7 +149,7 @@ public class DocGiaDAO {
 
     public boolean giaHanThe(int maDocGia, LocalDate ngayHetHanMoi) {
         String sql = "UPDATE DocGia SET NgayHetHan = ? WHERE MaDocGia = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(ngayHetHanMoi));
             ps.setInt(2, maDocGia);
@@ -162,7 +162,7 @@ public class DocGiaDAO {
 
     public boolean updateTrangThai(int maDocGia, boolean trangThai) {
         String sql = "UPDATE DocGia SET TrangThai = ? WHERE MaDocGia = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setBoolean(1, trangThai);
             ps.setInt(2, maDocGia);

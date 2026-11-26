@@ -17,7 +17,7 @@ public class SachDAO {
         String sql = "SELECT s.*, t.TenTheLoai FROM Sach s "
                    + "JOIN TheLoai t ON s.MaTheLoai = t.MaTheLoai "
                    + "ORDER BY s.MaSach DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -42,7 +42,7 @@ public class SachDAO {
         }
         sql.append("ORDER BY s.MaSach DESC");
 
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             if (keyword != null && !keyword.trim().isEmpty()) {
@@ -68,7 +68,7 @@ public class SachDAO {
     public boolean isIsbnExists(String isbn, int excludeMaSach) {
         if (isbn == null || isbn.trim().isEmpty()) return false;
         String sql = "SELECT 1 FROM Sach WHERE ISBN = ? AND MaSach <> ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, isbn.trim());
             ps.setInt(2, excludeMaSach);
@@ -85,7 +85,7 @@ public class SachDAO {
         String sqlWithCols = "INSERT INTO Sach (MaTheLoai, TenSach, TacGia, NhaXuatBan, NamXuatBan, ISBN, "
                            + "SoLuongTong, SoLuongConLai, SoLuongThanhLy, TinhTrangSach, ViTriKe, TrangThai) "
                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sqlWithCols)) {
             ps.setInt(1, s.getMaTheLoai());
             ps.setString(2, s.getTenSach());
@@ -104,7 +104,7 @@ public class SachDAO {
             String sqlFallback = "INSERT INTO Sach (MaTheLoai, TenSach, TacGia, NhaXuatBan, NamXuatBan, ISBN, "
                                + "SoLuongTong, SoLuongConLai, ViTriKe, TrangThai) "
                                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            try (Connection conn = DBConnection.getConnection();
+            try (Connection conn = DBConnection.requireConnection();
                  PreparedStatement ps = conn.prepareStatement(sqlFallback)) {
                 ps.setInt(1, s.getMaTheLoai());
                 ps.setString(2, s.getTenSach());
@@ -130,7 +130,7 @@ public class SachDAO {
         String sqlWithCols = "UPDATE Sach SET MaTheLoai = ?, TenSach = ?, TacGia = ?, NhaXuatBan = ?, NamXuatBan = ?, "
                            + "ISBN = ?, SoLuongTong = ?, SoLuongConLai = ?, SoLuongThanhLy = ?, TinhTrangSach = ?, "
                            + "ViTriKe = ?, TrangThai = ? WHERE MaSach = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sqlWithCols)) {
             ps.setInt(1, s.getMaTheLoai());
             ps.setString(2, s.getTenSach());
@@ -149,7 +149,7 @@ public class SachDAO {
         } catch (SQLException e) {
             String sqlFallback = "UPDATE Sach SET MaTheLoai = ?, TenSach = ?, TacGia = ?, NhaXuatBan = ?, NamXuatBan = ?, "
                                + "ISBN = ?, SoLuongTong = ?, SoLuongConLai = ?, ViTriKe = ?, TrangThai = ? WHERE MaSach = ?";
-            try (Connection conn = DBConnection.getConnection();
+            try (Connection conn = DBConnection.requireConnection();
                  PreparedStatement ps = conn.prepareStatement(sqlFallback)) {
                 ps.setInt(1, s.getMaTheLoai());
                 ps.setString(2, s.getTenSach());
@@ -174,7 +174,7 @@ public class SachDAO {
 
     public boolean updateTrangThai(int maSach, boolean trangThai) {
         String sql = "UPDATE Sach SET TrangThai = ? WHERE MaSach = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setBoolean(1, trangThai);
             ps.setInt(2, maSach);
@@ -194,7 +194,7 @@ public class SachDAO {
                    + "WHERE MaSach = ? AND SoLuongConLai >= ?";
         Connection conn = null;
         try {
-            conn = DBConnection.getConnection();
+            conn = DBConnection.requireConnection();
             conn.setAutoCommit(false);
 
             try (PreparedStatement ps = conn.prepareStatement(sql)) {

@@ -11,15 +11,22 @@ public class DBConnection {
     private static final String USER = "sa";
     private static final String PASSWORD = "123456"; // Thay bằng mật khẩu sa trên máy Hào để test
 
-    public static Connection getConnection() {
-        Connection conn = null;
+    public static Connection requireConnection() throws SQLException {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            conn = DriverManager.getConnection(URL, USER, PASSWORD);
-        } catch (ClassNotFoundException | SQLException e) {
+            return DriverManager.getConnection(URL, USER, PASSWORD);
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("Không tìm thấy SQLServerDriver!", e);
+        }
+    }
+
+    public static Connection getConnection() {
+        try {
+            return requireConnection();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
-        return conn;
+        return null;
     }
 
     public static void closeConnection(Connection conn) {

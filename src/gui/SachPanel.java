@@ -153,7 +153,11 @@ public class SachPanel extends JPanel {
                 txtNamXB.setText(val(r, 5));
                 txtISBN.setText(val(r, 6));
                 txtSoLuongTong.setText(val(r, 7));
+                txtSoLuongTong.setEditable(false);
+                txtSoLuongTong.setToolTipText("Không sửa tay số lượng khi cập nhật đầu sách");
                 txtSoLuongCon.setText(val(r, 8));
+                txtSoLuongCon.setEditable(false);
+                txtSoLuongCon.setToolTipText("Không sửa tay số lượng khi cập nhật; dùng nút Thanh lý sách");
                 selectTinhTrang(val(r, 10));
                 txtViTriKe.setText(val(r, 11));
                 chkLuuHanh.setSelected("Lưu hành".equals(val(r, 12)));
@@ -353,6 +357,10 @@ public class SachPanel extends JPanel {
 
         try {
             int slThanhLy = Integer.parseInt(input.trim());
+            if (slThanhLy <= 0) {
+                JOptionPane.showMessageDialog(this, "Số lượng thanh lý phải lớn hơn 0!", "Số lượng không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             int confirm = JOptionPane.showConfirmDialog(
                     this,
                     "Xác nhận thanh lý " + slThanhLy + " cuốn của đầu sách [" + tenSach + "]?",
@@ -407,7 +415,11 @@ public class SachPanel extends JPanel {
         txtNamXB.setText("2024");
         txtISBN.setText("");
         txtSoLuongTong.setText("1");
+        txtSoLuongTong.setEditable(true);
+        txtSoLuongTong.setToolTipText(null);
         txtSoLuongCon.setText("1");
+        txtSoLuongCon.setEditable(true);
+        txtSoLuongCon.setToolTipText(null);
         cboTinhTrang.setSelectedItem("Bình thường");
         txtViTriKe.setText("");
         chkLuuHanh.setSelected(true);

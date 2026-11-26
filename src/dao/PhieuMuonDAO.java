@@ -16,7 +16,7 @@ public class PhieuMuonDAO {
         String sql = "SELECT ISNULL(SUM(ct.SoLuong), 0) "
                    + "FROM PhieuMuon pm JOIN ChiTietPhieuMuon ct ON pm.MaPhieuMuon = ct.MaPhieuMuon "
                    + "WHERE pm.MaDocGia = ? AND pm.TrangThai <> N'Đã trả'";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, maDocGia);
             try (ResultSet rs = ps.executeQuery()) {
@@ -31,7 +31,7 @@ public class PhieuMuonDAO {
     // Kiểm tra độc giả có phiếu mượn nào đang quá hạn không
     public boolean hasPhieuQuaHan(int maDocGia) {
         String sql = "SELECT 1 FROM PhieuMuon WHERE MaDocGia = ? AND TrangThai <> N'Đã trả' AND HanTra < CAST(GETDATE() AS DATE)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, maDocGia);
             try (ResultSet rs = ps.executeQuery()) {
@@ -52,7 +52,7 @@ public class PhieuMuonDAO {
                    + "JOIN NhanVien nv ON pm.MaNV = nv.MaNV "
                    + (chiDangMuon ? "WHERE pm.TrangThai <> N'Đã trả' " : "")
                    + "ORDER BY pm.MaPhieuMuon DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             int soLanGiaHanIdx = -1;
@@ -61,9 +61,15 @@ public class PhieuMuonDAO {
             } catch (SQLException ignored) {
             }
 
+            LocalDate today = LocalDate.now();
             while (rs.next()) {
                 Date ngayTra = rs.getDate("NgayTraThucTe");
                 int soLanGiaHan = soLanGiaHanIdx > 0 ? rs.getInt(soLanGiaHanIdx) : 0;
+                LocalDate hanTra = rs.getDate("HanTra").toLocalDate();
+                String trangThai = rs.getString("TrangThai");
+                if (!"Đã trả".equalsIgnoreCase(trangThai) && hanTra.isBefore(today)) {
+                    trangThai = "Quá hạn";
+                }
                 list.add(new PhieuMuonDTO(
                         rs.getInt("MaPhieuMuon"),
                         rs.getInt("MaDocGia"),
@@ -71,9 +77,9 @@ public class PhieuMuonDAO {
                         rs.getInt("MaNV"),
                         rs.getString("TenNV"),
                         rs.getDate("NgayMuon").toLocalDate(),
-                        rs.getDate("HanTra").toLocalDate(),
+                        hanTra,
                         ngayTra != null ? ngayTra.toLocalDate() : null,
-                        rs.getString("TrangThai"),
+                        trangThai,
                         rs.getDouble("TongTienPhat"),
                         soLanGiaHan
                 ));
@@ -88,7 +94,7 @@ public class PhieuMuonDAO {
     public boolean giaHanPhieuMuon(int maPhieuMuon, LocalDate hanTraMoi) {
         String sqlWithCount = "UPDATE PhieuMuon SET HanTra = ?, SoLanGiaHan = ISNULL(SoLanGiaHan, 0) + 1 "
                             + "WHERE MaPhieuMuon = ? AND TrangThai <> N'Đã trả'";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sqlWithCount)) {
             ps.setDate(1, Date.valueOf(hanTraMoi));
             ps.setInt(2, maPhieuMuon);
@@ -96,7 +102,7 @@ public class PhieuMuonDAO {
         } catch (SQLException e) {
             // Fallback nếu bảng PhieuMuon chưa chạy ALTER thêm cột SoLanGiaHan
             String sqlFallback = "UPDATE PhieuMuon SET HanTra = ? WHERE MaPhieuMuon = ? AND TrangThai <> N'Đã trả'";
-            try (Connection conn = DBConnection.getConnection();
+            try (Connection conn = DBConnection.requireConnection();
                  PreparedStatement ps = conn.prepareStatement(sqlFallback)) {
                 ps.setDate(1, Date.valueOf(hanTraMoi));
                 ps.setInt(2, maPhieuMuon);
@@ -116,7 +122,7 @@ public class PhieuMuonDAO {
         String sql = "SELECT ct.*, s.TenSach FROM ChiTietPhieuMuon ct "
                    + "JOIN Sach s ON ct.MaSach = s.MaSach "
                    + "WHERE ct.MaPhieuMuon = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, maPhieuMuon);
             try (ResultSet rs = ps.executeQuery()) {
@@ -141,14 +147,17 @@ public class PhieuMuonDAO {
 
     // TRANSACTION LẬP PHIẾU MƯỢN: Tạo PhieuMuon + ChiTietPhieuMuon + Trừ SoLuongConLai
     public boolean lapPhieuMuonTransaction(int maDocGia, int maNV, LocalDate hanTra, List<ChiTietPhieuMuonDTO> dsSach) {
+        if (dsSach == null || dsSach.isEmpty()) {
+            return false;
+        }
         String sqlPhieu = "INSERT INTO PhieuMuon (MaDocGia, MaNV, NgayMuon, HanTra, TrangThai, TongTienPhat) "
                         + "VALUES (?, ?, CAST(GETDATE() AS DATE), ?, N'Đang mượn', 0)";
         String sqlChiTiet = "INSERT INTO ChiTietPhieuMuon (MaPhieuMuon, MaSach, SoLuong, TinhTrangKhiMuon) VALUES (?, ?, ?, N'Bình thường')";
-        String sqlTruKho = "UPDATE Sach SET SoLuongConLai = SoLuongConLai - ? WHERE MaSach = ? AND SoLuongConLai >= ?";
+        String sqlTruKho = "UPDATE Sach SET SoLuongConLai = SoLuongConLai - ? WHERE MaSach = ? AND TrangThai = 1 AND SoLuongConLai >= ?";
 
         Connection conn = null;
         try {
-            conn = DBConnection.getConnection();
+            conn = DBConnection.requireConnection();
             conn.setAutoCommit(false); // Bắt đầu Transaction
 
             int maPhieuMoi = -1;
@@ -170,7 +179,7 @@ public class PhieuMuonDAO {
             try (PreparedStatement psCT = conn.prepareStatement(sqlChiTiet);
                  PreparedStatement psKho = conn.prepareStatement(sqlTruKho)) {
                 for (ChiTietPhieuMuonDTO ct : dsSach) {
-                    // Trừ tồn kho trước, nếu không đủ tồn kho thì rollback
+                    // Trừ tồn kho trước, nếu không đủ tồn kho hoặc sách đã ẩn thì rollback
                     psKho.setInt(1, ct.getSoLuong());
                     psKho.setInt(2, ct.getMaSach());
                     psKho.setInt(3, ct.getSoLuong());
@@ -184,7 +193,10 @@ public class PhieuMuonDAO {
                     psCT.setInt(1, maPhieuMoi);
                     psCT.setInt(2, ct.getMaSach());
                     psCT.setInt(3, ct.getSoLuong());
-                    psCT.executeUpdate();
+                    if (psCT.executeUpdate() == 0) {
+                        conn.rollback();
+                        return false;
+                    }
                 }
             }
 
@@ -203,36 +215,62 @@ public class PhieuMuonDAO {
         }
     }
 
-    // TRANSACTION TRẢ SÁCH: Cập nhật PhieuMuon + ChiTietPhieuMuon + Cộng lại kho (trừ sách bị mất)
+    // TRANSACTION TRẢ SÁCH: Cập nhật PhieuMuon (chống trả trùng) + ChiTietPhieuMuon + Cập nhật kho
     public boolean traSachTransaction(int maPhieuMuon, double tongTienPhat, List<ChiTietPhieuMuonDTO> dsTra) {
-        String sqlPhieu = "UPDATE PhieuMuon SET NgayTraThucTe = CAST(GETDATE() AS DATE), TrangThai = N'Đã trả', TongTienPhat = ? WHERE MaPhieuMuon = ?";
+        if (dsTra == null || dsTra.isEmpty()) {
+            return false;
+        }
+        String sqlPhieu = "UPDATE PhieuMuon SET NgayTraThucTe = CAST(GETDATE() AS DATE), TrangThai = N'Đã trả', TongTienPhat = ? "
+                        + "WHERE MaPhieuMuon = ? AND TrangThai <> N'Đã trả'";
         String sqlCT = "UPDATE ChiTietPhieuMuon SET TinhTrangKhiTra = ?, TienPhat = ? WHERE MaChiTiet = ?";
-        String sqlCongKho = "UPDATE Sach SET SoLuongConLai = SoLuongConLai + ? WHERE MaSach = ?";
+        String sqlCongKho = "UPDATE Sach SET SoLuongConLai = SoLuongConLai + ? WHERE MaSach = ? AND SoLuongConLai + ? <= SoLuongTong";
+        String sqlMatSach = "UPDATE Sach SET SoLuongTong = SoLuongTong - ?, "
+                          + "TrangThai = CASE WHEN SoLuongConLai <= 0 AND SoLuongTong - ? <= 0 THEN 0 ELSE TrangThai END "
+                          + "WHERE MaSach = ? AND SoLuongTong - ? >= SoLuongConLai";
 
         Connection conn = null;
         try {
-            conn = DBConnection.getConnection();
+            conn = DBConnection.requireConnection();
             conn.setAutoCommit(false);
 
             try (PreparedStatement psPhieu = conn.prepareStatement(sqlPhieu)) {
                 psPhieu.setDouble(1, tongTienPhat);
                 psPhieu.setInt(2, maPhieuMuon);
-                psPhieu.executeUpdate();
+                if (psPhieu.executeUpdate() == 0) {
+                    conn.rollback();
+                    return false;
+                }
             }
 
             try (PreparedStatement psCT = conn.prepareStatement(sqlCT);
-                 PreparedStatement psKho = conn.prepareStatement(sqlCongKho)) {
+                 PreparedStatement psKho = conn.prepareStatement(sqlCongKho);
+                 PreparedStatement psMat = conn.prepareStatement(sqlMatSach)) {
                 for (ChiTietPhieuMuonDTO ct : dsTra) {
                     psCT.setString(1, ct.getTinhTrangKhiTra());
                     psCT.setDouble(2, ct.getTienPhat());
                     psCT.setInt(3, ct.getMaChiTiet());
-                    psCT.executeUpdate();
+                    if (psCT.executeUpdate() == 0) {
+                        conn.rollback();
+                        return false;
+                    }
 
-                    // Chỉ cộng lại tồn kho nếu sách không bị mất
                     if (!"Mất sách".equalsIgnoreCase(ct.getTinhTrangKhiTra())) {
                         psKho.setInt(1, ct.getSoLuong());
                         psKho.setInt(2, ct.getMaSach());
-                        psKho.executeUpdate();
+                        psKho.setInt(3, ct.getSoLuong());
+                        if (psKho.executeUpdate() == 0) {
+                            conn.rollback();
+                            return false;
+                        }
+                    } else {
+                        psMat.setInt(1, ct.getSoLuong());
+                        psMat.setInt(2, ct.getSoLuong());
+                        psMat.setInt(3, ct.getMaSach());
+                        psMat.setInt(4, ct.getSoLuong());
+                        if (psMat.executeUpdate() == 0) {
+                            conn.rollback();
+                            return false;
+                        }
                     }
                 }
             }
