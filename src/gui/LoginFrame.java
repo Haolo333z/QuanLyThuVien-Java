@@ -75,9 +75,9 @@ public class LoginFrame extends JFrame {
 
     private void xuLyDangNhap() {
         String user = txtUsername.getText().trim();
-        String pass = new String(txtPassword.getPassword()).trim();
+        String pass = new String(txtPassword.getPassword());
 
-        if (user.isEmpty() || pass.isEmpty()) {
+        if (user.isEmpty() || pass.trim().isEmpty()) {
             JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!",
                     "Thông báo", JOptionPane.WARNING_MESSAGE);
             return;

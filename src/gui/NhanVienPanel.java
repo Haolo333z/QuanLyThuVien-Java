@@ -13,7 +13,8 @@ import java.util.List;
 public class NhanVienPanel extends JPanel {
     private NhanVienBUS nhanVienBUS = new NhanVienBUS();
 
-    private JTextField txtMaNV, txtHoTen, txtTenDangNhap, txtMatKhau, txtSDT, txtEmail, txtTimKiem;
+    private JTextField txtMaNV, txtHoTen, txtTenDangNhap, txtSDT, txtEmail, txtTimKiem;
+    private JPasswordField txtMatKhau;
     private JComboBox<String> cboVaiTro;
     private JCheckBox chkHoatDong;
     private JTable table;
@@ -65,7 +66,8 @@ public class NhanVienPanel extends JPanel {
         txtMaNV.setEditable(false);
         txtHoTen = new JTextField();
         txtTenDangNhap = new JTextField();
-        txtMatKhau = new JTextField();
+        txtMatKhau = new JPasswordField();
+        txtMatKhau.putClientProperty("JTextField.placeholderText", "Nhập mật khẩu (>= 6 ký tự)");
         cboVaiTro = new JComboBox<>(new String[]{"ThuThu", "Admin"});
         txtSDT = new JTextField();
         txtEmail = new JTextField();
@@ -98,8 +100,8 @@ public class NhanVienPanel extends JPanel {
         formContainer.add(fieldsPanel, BorderLayout.CENTER);
         formContainer.add(buttonPanel, BorderLayout.SOUTH);
 
-        // 3. BẢNG DANH SÁCH NHÂN VIÊN
-        String[] columns = {"Mã NV", "Họ tên", "Tên đăng nhập", "Mật khẩu", "Vai trò", "SĐT", "Email", "Trạng thái"};
+        // 3. BẢNG DANH SÁCH NHÂN VIÊN (không hiển thị cột mật khẩu)
+        String[] columns = {"Mã NV", "Họ tên", "Tên đăng nhập", "Vai trò", "SĐT", "Email", "Trạng thái"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -128,11 +130,12 @@ public class NhanVienPanel extends JPanel {
                 txtHoTen.setText(tableModel.getValueAt(row, 1).toString());
                 txtTenDangNhap.setText(tableModel.getValueAt(row, 2).toString());
                 txtTenDangNhap.setEditable(false); // Không cho đổi username khi sửa
-                txtMatKhau.setText(tableModel.getValueAt(row, 3).toString());
-                cboVaiTro.setSelectedItem(tableModel.getValueAt(row, 4).toString());
-                txtSDT.setText(tableModel.getValueAt(row, 5) != null ? tableModel.getValueAt(row, 5).toString() : "");
-                txtEmail.setText(tableModel.getValueAt(row, 6) != null ? tableModel.getValueAt(row, 6).toString() : "");
-                chkHoatDong.setSelected("Hoạt động".equals(tableModel.getValueAt(row, 7).toString()));
+                txtMatKhau.setText("");
+                txtMatKhau.putClientProperty("JTextField.placeholderText", "Để trống nếu giữ nguyên mật khẩu");
+                cboVaiTro.setSelectedItem(tableModel.getValueAt(row, 3).toString());
+                txtSDT.setText(tableModel.getValueAt(row, 4) != null ? tableModel.getValueAt(row, 4).toString() : "");
+                txtEmail.setText(tableModel.getValueAt(row, 5) != null ? tableModel.getValueAt(row, 5).toString() : "");
+                chkHoatDong.setSelected("Hoạt động".equals(tableModel.getValueAt(row, 6).toString()));
             }
         });
 
@@ -157,6 +160,11 @@ public class NhanVienPanel extends JPanel {
         return btn;
     }
 
+    public void refreshData() {
+        txtTimKiem.setText("");
+        loadData(nhanVienBUS.getAll());
+    }
+
     private void loadData(List<NhanVienDTO> list) {
         tableModel.setRowCount(0);
         for (NhanVienDTO nv : list) {
@@ -164,7 +172,6 @@ public class NhanVienPanel extends JPanel {
                     nv.getMaNV(),
                     nv.getHoTen(),
                     nv.getTenDangNhap(),
-                    nv.getMatKhauHash(),
                     nv.getVaiTro(),
                     nv.getSoDienThoai(),
                     nv.getEmail(),
@@ -178,7 +185,7 @@ public class NhanVienPanel extends JPanel {
                 0,
                 txtHoTen.getText().trim(),
                 txtTenDangNhap.getText().trim(),
-                txtMatKhau.getText().trim(),
+                new String(txtMatKhau.getPassword()),
                 cboVaiTro.getSelectedItem().toString(),
                 txtSDT.getText().trim(),
                 txtEmail.getText().trim(),
@@ -203,7 +210,7 @@ public class NhanVienPanel extends JPanel {
                 Integer.parseInt(txtMaNV.getText()),
                 txtHoTen.getText().trim(),
                 txtTenDangNhap.getText().trim(),
-                txtMatKhau.getText().trim(),
+                new String(txtMatKhau.getPassword()),
                 cboVaiTro.getSelectedItem().toString(),
                 txtSDT.getText().trim(),
                 txtEmail.getText().trim(),
@@ -233,10 +240,13 @@ public class NhanVienPanel extends JPanel {
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            if (nhanVienBUS.toggleTrangThai(maNV, trangThaiMoi)) {
+            String msg = nhanVienBUS.toggleTrangThai(maNV, trangThaiMoi);
+            if ("OK".equals(msg)) {
                 JOptionPane.showMessageDialog(this, "Đã " + actionText.toLowerCase() + " tài khoản thành công!");
                 loadData(nhanVienBUS.getAll());
                 clearForm();
+            } else {
+                JOptionPane.showMessageDialog(this, msg, "Không thể thực hiện", JOptionPane.WARNING_MESSAGE);
             }
         }
     }
@@ -247,6 +257,7 @@ public class NhanVienPanel extends JPanel {
         txtTenDangNhap.setText("");
         txtTenDangNhap.setEditable(true);
         txtMatKhau.setText("");
+        txtMatKhau.putClientProperty("JTextField.placeholderText", "Nhập mật khẩu (>= 6 ký tự)");
         cboVaiTro.setSelectedIndex(0);
         txtSDT.setText("");
         txtEmail.setText("");

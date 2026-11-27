@@ -100,6 +100,32 @@ CREATE TABLE QuyDinh (
 );
 GO
 
+-- 8. Bảng LichSuKhoSach
+CREATE TABLE LichSuKhoSach (
+    MaLichSu INT IDENTITY(1,1) PRIMARY KEY,
+    MaSach INT NOT NULL FOREIGN KEY REFERENCES Sach(MaSach),
+    MaNV INT NOT NULL FOREIGN KEY REFERENCES NhanVien(MaNV),
+    LoaiBienDong NVARCHAR(30) NOT NULL CHECK (LoaiBienDong IN (N'Khởi tạo', N'Nhập thêm', N'Thanh lý', N'Mất sách')),
+    SoLuong INT NOT NULL CHECK (SoLuong > 0),
+    GhiChu NVARCHAR(255),
+    NgayThucHien DATETIME NOT NULL DEFAULT GETDATE()
+);
+GO
+
+-- 9. Bảng DatTruocSach
+CREATE TABLE DatTruocSach (
+    MaDatTruoc INT IDENTITY(1,1) PRIMARY KEY,
+    MaDocGia INT NOT NULL FOREIGN KEY REFERENCES DocGia(MaDocGia),
+    MaSach INT NOT NULL FOREIGN KEY REFERENCES Sach(MaSach),
+    MaNV INT NOT NULL FOREIGN KEY REFERENCES NhanVien(MaNV),
+    NgayDat DATETIME NOT NULL DEFAULT GETDATE(),
+    HanGiuCho DATE NULL,
+    TrangThai NVARCHAR(30) NOT NULL DEFAULT N'Đang chờ'
+        CHECK (TrangThai IN (N'Đang chờ', N'Đã có sách', N'Đã nhận', N'Đã hủy')),
+    GhiChu NVARCHAR(255)
+);
+GO
+
 -- ==========================================
 -- DỮ LIỆU MẪU ĐỂ TEST
 -- ==========================================

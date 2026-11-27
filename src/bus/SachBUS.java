@@ -2,8 +2,10 @@ package bus;
 
 import dao.SachDAO;
 import dao.TheLoaiDAO;
+import dto.LichSuKhoDTO;
 import dto.SachDTO;
 import dto.TheLoaiDTO;
+import utils.Session;
 
 import java.time.Year;
 import java.util.List;
@@ -62,7 +64,7 @@ public class SachBUS {
         }
         String check = validateSach(s);
         if (!"OK".equals(check)) return check;
-        return sachDAO.insert(s) ? "OK" : "Thêm sách thất bại!";
+        return sachDAO.insert(s, Session.getCurrentMaNV()) ? "OK" : "Thêm sách thất bại!";
     }
 
     public String updateSach(SachDTO s) {
@@ -78,21 +80,37 @@ public class SachBUS {
         return sachDAO.updateTrangThai(maSach, trangThaiMoi);
     }
 
+    public String nhapThemSach(int maSach, int soLuongThem, String ghiChu) {
+        if (Session.getCurrentMaNV() <= 0) {
+            return "Không xác định được nhân viên thực hiện! Vui lòng đăng nhập lại.";
+        }
+        if (maSach <= 0) {
+            return "Vui lòng chọn đầu sách cần nhập thêm!";
+        }
+        if (soLuongThem <= 0) {
+            return "Số lượng nhập thêm phải lớn hơn 0!";
+        }
+        SachDTO target = sachDAO.getById(maSach);
+        if (target == null) {
+            return "Không tìm thấy thông tin đầu sách!";
+        }
+        String cleanNote = (ghiChu != null && !ghiChu.trim().isEmpty()) ? ghiChu.trim() : "Nhập bổ sung kho";
+        boolean ok = sachDAO.nhapThemSachTransaction(maSach, soLuongThem, Session.getCurrentMaNV(), cleanNote);
+        return ok ? "OK" : "Nhập thêm kho thất bại (kiểm tra bảng LichSuKhoSach trong CSDL)!";
+    }
+
     public String thanhLySach(int maSach, int soLuongThanhLy, String tinhTrangMoi) {
+        return thanhLySach(maSach, soLuongThanhLy, tinhTrangMoi, "Thanh lý sách từ kho");
+    }
+
+    public String thanhLySach(int maSach, int soLuongThanhLy, String tinhTrangMoi, String ghiChu) {
         if (maSach <= 0) {
             return "Vui lòng chọn đầu sách cần thanh lý!";
         }
         if (soLuongThanhLy <= 0) {
             return "Số lượng thanh lý phải lớn hơn 0!";
         }
-        List<SachDTO> ds = sachDAO.getAll();
-        SachDTO target = null;
-        for (SachDTO item : ds) {
-            if (item.getMaSach() == maSach) {
-                target = item;
-                break;
-            }
-        }
+        SachDTO target = sachDAO.getById(maSach);
         if (target == null) {
             return "Không tìm thấy thông tin đầu sách!";
         }
@@ -103,7 +121,12 @@ public class SachBUS {
         String tt = (tinhTrangMoi != null && !tinhTrangMoi.trim().isEmpty())
                 ? tinhTrangMoi.trim()
                 : "Thanh lý";
-        boolean ok = sachDAO.thanhLySach(maSach, soLuongThanhLy, tt);
-        return ok ? "OK" : "Thanh lý sách thất bại (kiểm tra lại số lượng còn lại trong kho)!";
+        String cleanNote = (ghiChu != null && !ghiChu.trim().isEmpty()) ? ghiChu.trim() : "Thanh lý sách từ kho";
+        boolean ok = sachDAO.thanhLySach(maSach, soLuongThanhLy, tt, Session.getCurrentMaNV(), cleanNote);
+        return ok ? "OK" : "Thanh lý sách thất bại (kiểm tra lại số lượng còn lại hoặc bảng LichSuKhoSach)!";
+    }
+
+    public List<LichSuKhoDTO> getLichSuKho(int maSachFilter, String loaiFilter) {
+        return sachDAO.getLichSuKho(maSachFilter, loaiFilter);
     }
 }

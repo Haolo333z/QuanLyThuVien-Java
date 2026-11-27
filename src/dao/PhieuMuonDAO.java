@@ -45,49 +45,108 @@ public class PhieuMuonDAO {
 
     // Lấy danh sách phiếu mượn (nếu chiDangMuon = true thì chỉ lấy phiếu chưa trả)
     public List<PhieuMuonDTO> getAll(boolean chiDangMuon) {
-        List<PhieuMuonDTO> list = new ArrayList<>();
-        String sql = "SELECT pm.*, dg.HoTen AS TenDocGia, nv.HoTen AS TenNV "
-                   + "FROM PhieuMuon pm "
-                   + "JOIN DocGia dg ON pm.MaDocGia = dg.MaDocGia "
-                   + "JOIN NhanVien nv ON pm.MaNV = nv.MaNV "
-                   + (chiDangMuon ? "WHERE pm.TrangThai <> N'Đã trả' " : "")
-                   + "ORDER BY pm.MaPhieuMuon DESC";
-        try (Connection conn = DBConnection.requireConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            int soLanGiaHanIdx = -1;
-            try {
-                soLanGiaHanIdx = rs.findColumn("SoLanGiaHan");
-            } catch (SQLException ignored) {
-            }
+        return searchPhieuMuon("", chiDangMuon ? "Chưa trả" : "Tất cả");
+    }
 
-            LocalDate today = LocalDate.now();
-            while (rs.next()) {
-                Date ngayTra = rs.getDate("NgayTraThucTe");
-                int soLanGiaHan = soLanGiaHanIdx > 0 ? rs.getInt(soLanGiaHanIdx) : 0;
-                LocalDate hanTra = rs.getDate("HanTra").toLocalDate();
-                String trangThai = rs.getString("TrangThai");
-                if (!"Đã trả".equalsIgnoreCase(trangThai) && hanTra.isBefore(today)) {
-                    trangThai = "Quá hạn";
+    // Tìm kiếm & lọc danh sách phiếu mượn theo từ khóa (Mã phiếu, Tên ĐG, SĐT ĐG) và trạng thái
+    public List<PhieuMuonDTO> searchPhieuMuon(String keyword, String trangThaiFilter) {
+        List<PhieuMuonDTO> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT pm.*, dg.HoTen AS TenDocGia, nv.HoTen AS TenNV "
+              + "FROM PhieuMuon pm "
+              + "JOIN DocGia dg ON pm.MaDocGia = dg.MaDocGia "
+              + "JOIN NhanVien nv ON pm.MaNV = nv.MaNV "
+              + "WHERE 1=1 ");
+
+        String cleanKey = keyword != null ? keyword.trim() : "";
+        if (!cleanKey.isEmpty()) {
+            sql.append("AND (CAST(pm.MaPhieuMuon AS VARCHAR(20)) LIKE ? OR dg.HoTen LIKE ? OR dg.SoDienThoai LIKE ?) ");
+        }
+
+        String filter = trangThaiFilter != null ? trangThaiFilter.trim() : "Tất cả";
+        if ("Chưa trả".equalsIgnoreCase(filter)) {
+            sql.append("AND pm.TrangThai <> N'Đã trả' ");
+        } else if ("Đang mượn".equalsIgnoreCase(filter)) {
+            sql.append("AND pm.TrangThai <> N'Đã trả' AND pm.HanTra >= CAST(GETDATE() AS DATE) ");
+        } else if ("Quá hạn".equalsIgnoreCase(filter)) {
+            sql.append("AND pm.TrangThai <> N'Đã trả' AND pm.HanTra < CAST(GETDATE() AS DATE) ");
+        } else if ("Đã trả".equalsIgnoreCase(filter)) {
+            sql.append("AND pm.TrangThai = N'Đã trả' ");
+        }
+
+        sql.append("ORDER BY pm.MaPhieuMuon DESC");
+
+        try (Connection conn = DBConnection.requireConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            if (!cleanKey.isEmpty()) {
+                String pattern = "%" + cleanKey + "%";
+                ps.setString(1, pattern);
+                ps.setString(2, pattern);
+                ps.setString(3, pattern);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                int soLanGiaHanIdx = findColumnSafe(rs, "SoLanGiaHan");
+                LocalDate today = LocalDate.now();
+                while (rs.next()) {
+                    list.add(mapPhieuMuonRow(rs, soLanGiaHanIdx, today));
                 }
-                list.add(new PhieuMuonDTO(
-                        rs.getInt("MaPhieuMuon"),
-                        rs.getInt("MaDocGia"),
-                        rs.getString("TenDocGia"),
-                        rs.getInt("MaNV"),
-                        rs.getString("TenNV"),
-                        rs.getDate("NgayMuon").toLocalDate(),
-                        hanTra,
-                        ngayTra != null ? ngayTra.toLocalDate() : null,
-                        trangThai,
-                        rs.getDouble("TongTienPhat"),
-                        soLanGiaHan
-                ));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return list;
+    }
+
+    private int findColumnSafe(ResultSet rs, String columnName) {
+        try {
+            return rs.findColumn(columnName);
+        } catch (SQLException ignored) {
+            return -1;
+        }
+    }
+
+    private PhieuMuonDTO mapPhieuMuonRow(ResultSet rs, int soLanGiaHanIdx, LocalDate today) throws SQLException {
+        Date ngayTra = rs.getDate("NgayTraThucTe");
+        int soLanGiaHan = soLanGiaHanIdx > 0 ? rs.getInt(soLanGiaHanIdx) : 0;
+        LocalDate hanTra = rs.getDate("HanTra").toLocalDate();
+        String trangThai = rs.getString("TrangThai");
+        if (!"Đã trả".equalsIgnoreCase(trangThai) && hanTra.isBefore(today)) {
+            trangThai = "Quá hạn";
+        }
+        return new PhieuMuonDTO(
+                rs.getInt("MaPhieuMuon"),
+                rs.getInt("MaDocGia"),
+                rs.getString("TenDocGia"),
+                rs.getInt("MaNV"),
+                rs.getString("TenNV"),
+                rs.getDate("NgayMuon").toLocalDate(),
+                hanTra,
+                ngayTra != null ? ngayTra.toLocalDate() : null,
+                trangThai,
+                rs.getDouble("TongTienPhat"),
+                soLanGiaHan
+        );
+    }
+
+    public PhieuMuonDTO getById(int maPhieuMuon) {
+        String sql = "SELECT pm.*, dg.HoTen AS TenDocGia, nv.HoTen AS TenNV "
+                   + "FROM PhieuMuon pm "
+                   + "JOIN DocGia dg ON pm.MaDocGia = dg.MaDocGia "
+                   + "JOIN NhanVien nv ON pm.MaNV = nv.MaNV "
+                   + "WHERE pm.MaPhieuMuon = ?";
+        try (Connection conn = DBConnection.requireConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, maPhieuMuon);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int soLanGiaHanIdx = findColumnSafe(rs, "SoLanGiaHan");
+                    return mapPhieuMuonRow(rs, soLanGiaHanIdx, LocalDate.now());
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     // Gia hạn thời gian trả cho phiếu mượn đang hoạt động
@@ -147,8 +206,12 @@ public class PhieuMuonDAO {
 
     // TRANSACTION LẬP PHIẾU MƯỢN: Tạo PhieuMuon + ChiTietPhieuMuon + Trừ SoLuongConLai
     public boolean lapPhieuMuonTransaction(int maDocGia, int maNV, LocalDate hanTra, List<ChiTietPhieuMuonDTO> dsSach) {
+        return lapPhieuMuonTransactionReturnId(maDocGia, maNV, hanTra, dsSach) > 0;
+    }
+
+    public int lapPhieuMuonTransactionReturnId(int maDocGia, int maNV, LocalDate hanTra, List<ChiTietPhieuMuonDTO> dsSach) {
         if (dsSach == null || dsSach.isEmpty()) {
-            return false;
+            return -1;
         }
         String sqlPhieu = "INSERT INTO PhieuMuon (MaDocGia, MaNV, NgayMuon, HanTra, TrangThai, TongTienPhat) "
                         + "VALUES (?, ?, CAST(GETDATE() AS DATE), ?, N'Đang mượn', 0)";
@@ -173,7 +236,7 @@ public class PhieuMuonDAO {
 
             if (maPhieuMoi == -1) {
                 conn.rollback();
-                return false;
+                return -1;
             }
 
             try (PreparedStatement psCT = conn.prepareStatement(sqlChiTiet);
@@ -186,7 +249,7 @@ public class PhieuMuonDAO {
                     int updated = psKho.executeUpdate();
                     if (updated == 0) {
                         conn.rollback();
-                        return false;
+                        return -1;
                     }
 
                     // Ghi chi tiết phiếu mượn
@@ -195,19 +258,22 @@ public class PhieuMuonDAO {
                     psCT.setInt(3, ct.getSoLuong());
                     if (psCT.executeUpdate() == 0) {
                         conn.rollback();
-                        return false;
+                        return -1;
                     }
+
+                    // Đánh dấu đã nhận nếu độc giả có đặt trước sách này
+                    DatTruocDAO.markReaderReservationsReceived(conn, maDocGia, ct.getMaSach());
                 }
             }
 
             conn.commit(); // Thành công -> Commit
-            return true;
+            return maPhieuMoi;
         } catch (Exception e) {
             e.printStackTrace();
             if (conn != null) {
                 try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
-            return false;
+            return -1;
         } finally {
             if (conn != null) {
                 try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
@@ -215,10 +281,19 @@ public class PhieuMuonDAO {
         }
     }
 
-    // TRANSACTION TRẢ SÁCH: Cập nhật PhieuMuon (chống trả trùng) + ChiTietPhieuMuon + Cập nhật kho
+    // TRANSACTION TRẢ SÁCH: Cập nhật PhieuMuon (chống trả trùng) + ChiTietPhieuMuon + Cập nhật kho + Ghi log mất sách + Đẩy hàng đợi đặt trước
     public boolean traSachTransaction(int maPhieuMuon, double tongTienPhat, List<ChiTietPhieuMuonDTO> dsTra) {
+        return traSachTransaction(maPhieuMuon, tongTienPhat, dsTra, utils.Session.getCurrentMaNV());
+    }
+
+    public boolean traSachTransaction(int maPhieuMuon, double tongTienPhat, List<ChiTietPhieuMuonDTO> dsTra, int maNV) {
+        return traSachTransactionWithNotifications(maPhieuMuon, tongTienPhat, dsTra, maNV) != null;
+    }
+
+    public List<String> traSachTransactionWithNotifications(int maPhieuMuon, double tongTienPhat,
+                                                            List<ChiTietPhieuMuonDTO> dsTra, int maNV) {
         if (dsTra == null || dsTra.isEmpty()) {
-            return false;
+            return null;
         }
         String sqlPhieu = "UPDATE PhieuMuon SET NgayTraThucTe = CAST(GETDATE() AS DATE), TrangThai = N'Đã trả', TongTienPhat = ? "
                         + "WHERE MaPhieuMuon = ? AND TrangThai <> N'Đã trả'";
@@ -228,6 +303,7 @@ public class PhieuMuonDAO {
                           + "TrangThai = CASE WHEN SoLuongConLai <= 0 AND SoLuongTong - ? <= 0 THEN 0 ELSE TrangThai END "
                           + "WHERE MaSach = ? AND SoLuongTong - ? >= SoLuongConLai";
 
+        List<String> reservationNotices = new ArrayList<>();
         Connection conn = null;
         try {
             conn = DBConnection.requireConnection();
@@ -238,7 +314,7 @@ public class PhieuMuonDAO {
                 psPhieu.setInt(2, maPhieuMuon);
                 if (psPhieu.executeUpdate() == 0) {
                     conn.rollback();
-                    return false;
+                    return null;
                 }
             }
 
@@ -251,7 +327,7 @@ public class PhieuMuonDAO {
                     psCT.setInt(3, ct.getMaChiTiet());
                     if (psCT.executeUpdate() == 0) {
                         conn.rollback();
-                        return false;
+                        return null;
                     }
 
                     if (!"Mất sách".equalsIgnoreCase(ct.getTinhTrangKhiTra())) {
@@ -260,8 +336,12 @@ public class PhieuMuonDAO {
                         psKho.setInt(3, ct.getSoLuong());
                         if (psKho.executeUpdate() == 0) {
                             conn.rollback();
-                            return false;
+                            return null;
                         }
+                        // Chuyển các phiếu đặt trước đang chờ (FIFO) sang 'Đã có sách' (giữ chỗ 3 ngày)
+                        reservationNotices.addAll(
+                                DatTruocDAO.promoteNextWaitingReservations(conn, ct.getMaSach(), ct.getSoLuong(), 3)
+                        );
                     } else {
                         psMat.setInt(1, ct.getSoLuong());
                         psMat.setInt(2, ct.getSoLuong());
@@ -269,20 +349,30 @@ public class PhieuMuonDAO {
                         psMat.setInt(4, ct.getSoLuong());
                         if (psMat.executeUpdate() == 0) {
                             conn.rollback();
-                            return false;
+                            return null;
+                        }
+                        if (maNV > 0) {
+                            SachDAO.insertLichSuKho(
+                                    conn,
+                                    ct.getMaSach(),
+                                    maNV,
+                                    "Mất sách",
+                                    ct.getSoLuong(),
+                                    "Mất sách khi trả phiếu #" + maPhieuMuon
+                            );
                         }
                     }
                 }
             }
 
             conn.commit();
-            return true;
+            return reservationNotices;
         } catch (Exception e) {
             e.printStackTrace();
             if (conn != null) {
                 try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
-            return false;
+            return null;
         } finally {
             if (conn != null) {
                 try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }

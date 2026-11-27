@@ -1,5 +1,6 @@
 package gui;
 
+import bus.NhanVienBUS;
 import com.formdev.flatlaf.FlatLightLaf;
 import dto.NhanVienDTO;
 import utils.Session;
@@ -17,7 +18,16 @@ public class MainFrame extends JFrame {
     private JButton btnDocGia;
     private JButton btnMuonTra;
     private JButton btnNhanVien;
+    private JButton btnQuyDinh;
+    private JButton btnDoiMatKhau;
     private JButton btnDangXuat;
+
+    private ThongKePanel thongKePanel;
+    private SachPanel sachPanel;
+    private DocGiaPanel docGiaPanel;
+    private MuonTraPanel muonTraPanel;
+    private NhanVienPanel nhanVienPanel;
+    private QuyDinhPanel quyDinhPanel;
 
     private NhanVienDTO currentUser;
     private String hoTen;
@@ -98,17 +108,27 @@ public class MainFrame extends JFrame {
         btnDocGia = createMenuButton("Quản lý Độc giả");
         btnMuonTra = createMenuButton("Mượn / Trả sách");
         btnNhanVien = createMenuButton("Quản lý Nhân viên");
+        btnQuyDinh = createMenuButton("Quy định thư viện");
 
         menuPanel.add(btnThongKe);
         menuPanel.add(btnSach);
         menuPanel.add(btnDocGia);
         menuPanel.add(btnMuonTra);
         menuPanel.add(btnNhanVien);
+        menuPanel.add(btnQuyDinh);
 
-        // Nút Đăng xuất
-        JPanel footerPanel = new JPanel(new BorderLayout());
+        // Nút Đổi mật khẩu & Đăng xuất
+        JPanel footerPanel = new JPanel(new GridLayout(2, 1, 0, 8));
         footerPanel.setOpaque(false);
         footerPanel.setBorder(new EmptyBorder(15, 15, 20, 15));
+
+        btnDoiMatKhau = new JButton("Đổi mật khẩu");
+        btnDoiMatKhau.setFocusPainted(false);
+        btnDoiMatKhau.setBackground(new Color(51, 65, 85));
+        btnDoiMatKhau.setForeground(Color.WHITE);
+        btnDoiMatKhau.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnDoiMatKhau.setPreferredSize(new Dimension(0, 38));
+        btnDoiMatKhau.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         btnDangXuat = new JButton("Đăng xuất");
         btnDangXuat.setFocusPainted(false);
@@ -117,7 +137,9 @@ public class MainFrame extends JFrame {
         btnDangXuat.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnDangXuat.setPreferredSize(new Dimension(0, 40));
         btnDangXuat.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        footerPanel.add(btnDangXuat, BorderLayout.CENTER);
+
+        footerPanel.add(btnDoiMatKhau);
+        footerPanel.add(btnDangXuat);
 
         sidebar.add(headerPanel, BorderLayout.NORTH);
         sidebar.add(menuPanel, BorderLayout.CENTER);
@@ -128,21 +150,50 @@ public class MainFrame extends JFrame {
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(new Color(248, 250, 252));
 
-        contentPanel.add(new ThongKePanel(), "THONG_KE");
-        contentPanel.add(new SachPanel(), "SACH");
-        contentPanel.add(new DocGiaPanel(), "DOC_GIA");
-        contentPanel.add(new MuonTraPanel(), "MUON_TRA");
-        contentPanel.add(new NhanVienPanel(), "NHAN_VIEN");
+        thongKePanel = new ThongKePanel();
+        sachPanel = new SachPanel();
+        docGiaPanel = new DocGiaPanel();
+        muonTraPanel = new MuonTraPanel();
+        nhanVienPanel = new NhanVienPanel();
+        quyDinhPanel = new QuyDinhPanel();
+
+        contentPanel.add(thongKePanel, "THONG_KE");
+        contentPanel.add(sachPanel, "SACH");
+        contentPanel.add(docGiaPanel, "DOC_GIA");
+        contentPanel.add(muonTraPanel, "MUON_TRA");
+        contentPanel.add(nhanVienPanel, "NHAN_VIEN");
+        contentPanel.add(quyDinhPanel, "QUY_DINH");
 
         add(sidebar, BorderLayout.WEST);
         add(contentPanel, BorderLayout.CENTER);
 
-        // 3. SỰ KIỆN CHUYỂN TAB & ĐĂNG XUẤT
-        btnThongKe.addActionListener(e -> cardLayout.show(contentPanel, "THONG_KE"));
-        btnSach.addActionListener(e -> cardLayout.show(contentPanel, "SACH"));
-        btnDocGia.addActionListener(e -> cardLayout.show(contentPanel, "DOC_GIA"));
-        btnMuonTra.addActionListener(e -> cardLayout.show(contentPanel, "MUON_TRA"));
-        btnNhanVien.addActionListener(e -> cardLayout.show(contentPanel, "NHAN_VIEN"));
+        // 3. SỰ KIỆN CHUYỂN TAB (TỰ RELOAD) & ĐỔI MẬT KHẨU & ĐĂNG XUẤT
+        btnThongKe.addActionListener(e -> {
+            thongKePanel.refreshData();
+            cardLayout.show(contentPanel, "THONG_KE");
+        });
+        btnSach.addActionListener(e -> {
+            sachPanel.refreshData();
+            cardLayout.show(contentPanel, "SACH");
+        });
+        btnDocGia.addActionListener(e -> {
+            docGiaPanel.refreshData();
+            cardLayout.show(contentPanel, "DOC_GIA");
+        });
+        btnMuonTra.addActionListener(e -> {
+            muonTraPanel.refreshData();
+            cardLayout.show(contentPanel, "MUON_TRA");
+        });
+        btnNhanVien.addActionListener(e -> {
+            nhanVienPanel.refreshData();
+            cardLayout.show(contentPanel, "NHAN_VIEN");
+        });
+        btnQuyDinh.addActionListener(e -> {
+            quyDinhPanel.refreshData();
+            cardLayout.show(contentPanel, "QUY_DINH");
+        });
+
+        btnDoiMatKhau.addActionListener(e -> xuLyDoiMatKhau());
 
         btnDangXuat.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(
@@ -181,9 +232,56 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
+    private void xuLyDoiMatKhau() {
+        int maNV = Session.getCurrentMaNV();
+        if (maNV <= 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Phiên đăng nhập không hợp lệ! Vui lòng đăng nhập lại.",
+                    "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JPasswordField txtOld = new JPasswordField();
+        JPasswordField txtNew = new JPasswordField();
+        JPasswordField txtConfirm = new JPasswordField();
+
+        JPanel form = new JPanel(new GridLayout(3, 2, 10, 10));
+        form.setPreferredSize(new Dimension(340, 110));
+        form.add(new JLabel("Mật khẩu hiện tại:"));
+        form.add(txtOld);
+        form.add(new JLabel("Mật khẩu mới (>= 6 ký tự):"));
+        form.add(txtNew);
+        form.add(new JLabel("Xác nhận mật khẩu mới:"));
+        form.add(txtConfirm);
+
+        int option = JOptionPane.showConfirmDialog(
+                this,
+                form,
+                "Đổi mật khẩu cá nhân",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (option == JOptionPane.OK_OPTION) {
+            NhanVienBUS nhanVienBUS = new NhanVienBUS();
+            String msg = nhanVienBUS.doiMatKhau(
+                    maNV,
+                    new String(txtOld.getPassword()),
+                    new String(txtNew.getPassword()),
+                    new String(txtConfirm.getPassword())
+            );
+            if ("OK".equals(msg)) {
+                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, msg, "Không thể đổi mật khẩu", JOptionPane.WARNING_MESSAGE);
+            }
+        }
+    }
+
     private void applyPermissions() {
         if (!"Admin".equalsIgnoreCase(vaiTro)) {
             btnNhanVien.setVisible(false);
+            btnQuyDinh.setVisible(false);
         }
     }
 

@@ -1,15 +1,20 @@
 package bus;
 
+import dao.DatTruocDAO;
 import dao.DocGiaDAO;
 import dao.PhieuMuonDAO;
 import dao.QuyDinhDAO;
+import dao.SachDAO;
 import dto.ChiTietPhieuMuonDTO;
 import dto.DocGiaDTO;
 import dto.PhieuMuonDTO;
 import dto.QuyDinhDTO;
+import dto.SachDTO;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MuonTraBUS {
@@ -21,14 +26,44 @@ public class MuonTraBUS {
     private PhieuMuonDAO phieuMuonDAO = new PhieuMuonDAO();
     private DocGiaDAO docGiaDAO = new DocGiaDAO();
     private QuyDinhDAO quyDinhDAO = new QuyDinhDAO();
+    private DatTruocDAO datTruocDAO = new DatTruocDAO();
+    private SachDAO sachDAO = new SachDAO();
+    private List<String> lastReturnReservationNotices = new ArrayList<>();
 
     public QuyDinhDTO getQuyDinhHienTai() {
         QuyDinhDTO qd = quyDinhDAO.getQuyDinh();
         return qd != null ? qd : new QuyDinhDTO();
     }
 
+    public static class DuKienPhat {
+        private final long soNgayTre;
+        private final double phatTre;
+        private final double phatTinhTrang;
+        private final double tongPhat;
+
+        public DuKienPhat(long soNgayTre, double phatTre, double phatTinhTrang) {
+            this.soNgayTre = soNgayTre;
+            this.phatTre = phatTre;
+            this.phatTinhTrang = phatTinhTrang;
+            this.tongPhat = phatTre + phatTinhTrang;
+        }
+
+        public long getSoNgayTre() { return soNgayTre; }
+        public double getPhatTre() { return phatTre; }
+        public double getPhatTinhTrang() { return phatTinhTrang; }
+        public double getTongPhat() { return tongPhat; }
+    }
+
     public List<PhieuMuonDTO> getPhieuDangMuon() {
         return phieuMuonDAO.getAll(true);
+    }
+
+    public List<PhieuMuonDTO> searchPhieuMuon(String keyword, String trangThaiFilter) {
+        return phieuMuonDAO.searchPhieuMuon(keyword, trangThaiFilter);
+    }
+
+    public PhieuMuonDTO getPhieuById(int maPhieuMuon) {
+        return phieuMuonDAO.getById(maPhieuMuon);
     }
 
     public List<ChiTietPhieuMuonDTO> getChiTiet(int maPhieuMuon) {
@@ -81,9 +116,24 @@ public class MuonTraBUS {
             return "Vượt quá giới hạn tối đa " + maxSachMuon + " cuốn! (Đang mượn: " + dangMuon + ", muốn mượn thêm: " + muonMoi + ")";
         }
 
-        // 4. Thực thi Transaction
-        boolean ok = phieuMuonDAO.lapPhieuMuonTransaction(maDocGia, maNV, hanTra, dsSach);
-        return ok ? "OK" : "Lập phiếu mượn thất bại (kiểm tra lại số lượng sách tồn kho)!";
+        // 4. Kiểm tra giữ chỗ đặt trước của độc giả khác
+        datTruocDAO.autoExpireHolds();
+        for (ChiTietPhieuMuonDTO ct : dsSach) {
+            SachDTO sach = sachDAO.getById(ct.getMaSach());
+            if (sach == null || !sach.isTrangThai()) {
+                return "Đầu sách mã " + ct.getMaSach() + " không tồn tại hoặc đã ngừng lưu hành!";
+            }
+            int heldByOthers = datTruocDAO.countHeldCopiesForOtherReaders(ct.getMaSach(), maDocGia);
+            int khaDungTuDo = sach.getSoLuongConLai() - heldByOthers;
+            if (heldByOthers > 0 && khaDungTuDo < ct.getSoLuong()) {
+                return "Sách \"" + sach.getTenSach() + "\" đang giữ chỗ " + heldByOthers
+                        + " bản cho độc giả đã đặt trước (còn khả dụng tự do: " + Math.max(0, khaDungTuDo) + ")!";
+            }
+        }
+
+        // 5. Thực thi Transaction
+        int maPhieuMoi = phieuMuonDAO.lapPhieuMuonTransactionReturnId(maDocGia, maNV, hanTra, dsSach);
+        return maPhieuMoi > 0 ? "OK:" + maPhieuMoi : "Lập phiếu mượn thất bại (kiểm tra lại số lượng sách tồn kho)!";
     }
 
     public String giaHanPhieuMuon(PhieuMuonDTO pm) {
@@ -122,20 +172,21 @@ public class MuonTraBUS {
         return ok ? "OK:" + hanTraMoi : "Gia hạn phiếu mượn thất bại!";
     }
 
-    public double tinhTienPhatVaTraSach(PhieuMuonDTO pm, List<ChiTietPhieuMuonDTO> dsTra) {
-        if (pm == null || dsTra == null || dsTra.isEmpty() || "Đã trả".equalsIgnoreCase(pm.getTrangThai())) {
-            return -1;
+    public DuKienPhat tinhDuKienTienPhat(PhieuMuonDTO pm, List<ChiTietPhieuMuonDTO> dsTra) {
+        if (pm == null || dsTra == null || dsTra.isEmpty()) {
+            return new DuKienPhat(0, 0, 0);
         }
         QuyDinhDTO qd = getQuyDinhHienTai();
-        double phatTreMoiNgay = qd.getPhatTreMoiNgay() > 0 ? qd.getPhatTreMoiNgay() : PHAT_TRE_MOI_NGAY;
-        double phatHuHong = qd.getPhatHuHong() > 0 ? qd.getPhatHuHong() : PHAT_HU_HONG;
-        double phatMatSach = qd.getPhatMatSach() > 0 ? qd.getPhatMatSach() : PHAT_MAT_SACH;
+        double phatTreMoiNgay = qd.getPhatTreMoiNgay() >= 0 ? qd.getPhatTreMoiNgay() : PHAT_TRE_MOI_NGAY;
+        double phatHuHong = qd.getPhatHuHong() >= 0 ? qd.getPhatHuHong() : PHAT_HU_HONG;
+        double phatMatSach = qd.getPhatMatSach() >= 0 ? qd.getPhatMatSach() : PHAT_MAT_SACH;
 
         LocalDate today = LocalDate.now();
-        long soNgayTre = ChronoUnit.DAYS.between(pm.getHanTra(), today);
-        double phatTre = soNgayTre > 0 ? soNgayTre * phatTreMoiNgay : 0;
+        long rawNgayTre = pm.getHanTra() != null ? ChronoUnit.DAYS.between(pm.getHanTra(), today) : 0;
+        long soNgayTre = Math.max(0, rawNgayTre);
+        double phatTre = soNgayTre * phatTreMoiNgay;
 
-        double tongPhat = phatTre;
+        double phatTinhTrang = 0;
         for (ChiTietPhieuMuonDTO ct : dsTra) {
             double phatSach = 0;
             if ("Hư hỏng".equalsIgnoreCase(ct.getTinhTrangKhiTra())) {
@@ -144,10 +195,29 @@ public class MuonTraBUS {
                 phatSach = phatMatSach * ct.getSoLuong();
             }
             ct.setTienPhat(phatSach);
-            tongPhat += phatSach;
+            phatTinhTrang += phatSach;
         }
+        return new DuKienPhat(soNgayTre, phatTre, phatTinhTrang);
+    }
 
-        boolean ok = phieuMuonDAO.traSachTransaction(pm.getMaPhieuMuon(), tongPhat, dsTra);
-        return ok ? tongPhat : -1;
+    public List<String> getLastReturnReservationNotices() {
+        return Collections.unmodifiableList(lastReturnReservationNotices);
+    }
+
+    public double tinhTienPhatVaTraSach(PhieuMuonDTO pm, List<ChiTietPhieuMuonDTO> dsTra) {
+        lastReturnReservationNotices = new ArrayList<>();
+        if (pm == null || dsTra == null || dsTra.isEmpty() || "Đã trả".equalsIgnoreCase(pm.getTrangThai())) {
+            return -1;
+        }
+        DuKienPhat duKien = tinhDuKienTienPhat(pm, dsTra);
+        int maNVThucHien = utils.Session.getCurrentMaNV() > 0 ? utils.Session.getCurrentMaNV() : pm.getMaNV();
+        List<String> notices = phieuMuonDAO.traSachTransactionWithNotifications(
+                pm.getMaPhieuMuon(), duKien.getTongPhat(), dsTra, maNVThucHien
+        );
+        if (notices == null) {
+            return -1;
+        }
+        lastReturnReservationNotices = notices;
+        return duKien.getTongPhat();
     }
 }

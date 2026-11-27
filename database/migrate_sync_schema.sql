@@ -75,3 +75,35 @@ BEGIN
     VALUES (14, 7, 1, 5, 5000, 50000, 150000);
 END
 GO
+
+-- 4. Tạo bảng LichSuKhoSach nếu chưa tồn tại
+IF OBJECT_ID('dbo.LichSuKhoSach', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.LichSuKhoSach (
+        MaLichSu INT IDENTITY(1,1) PRIMARY KEY,
+        MaSach INT NOT NULL FOREIGN KEY REFERENCES dbo.Sach(MaSach),
+        MaNV INT NOT NULL FOREIGN KEY REFERENCES dbo.NhanVien(MaNV),
+        LoaiBienDong NVARCHAR(30) NOT NULL CHECK (LoaiBienDong IN (N'Khởi tạo', N'Nhập thêm', N'Thanh lý', N'Mất sách')),
+        SoLuong INT NOT NULL CHECK (SoLuong > 0),
+        GhiChu NVARCHAR(255),
+        NgayThucHien DATETIME NOT NULL DEFAULT GETDATE()
+    );
+END
+GO
+
+-- 5. Tạo bảng DatTruocSach nếu chưa tồn tại
+IF OBJECT_ID('dbo.DatTruocSach', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DatTruocSach (
+        MaDatTruoc INT IDENTITY(1,1) PRIMARY KEY,
+        MaDocGia INT NOT NULL FOREIGN KEY REFERENCES dbo.DocGia(MaDocGia),
+        MaSach INT NOT NULL FOREIGN KEY REFERENCES dbo.Sach(MaSach),
+        MaNV INT NOT NULL FOREIGN KEY REFERENCES dbo.NhanVien(MaNV),
+        NgayDat DATETIME NOT NULL DEFAULT GETDATE(),
+        HanGiuCho DATE NULL,
+        TrangThai NVARCHAR(30) NOT NULL DEFAULT N'Đang chờ'
+            CHECK (TrangThai IN (N'Đang chờ', N'Đã có sách', N'Đã nhận', N'Đã hủy')),
+        GhiChu NVARCHAR(255)
+    );
+END
+GO

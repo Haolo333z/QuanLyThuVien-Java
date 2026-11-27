@@ -62,6 +62,10 @@ public class DocGiaDAO {
     }
 
     public DocGiaDTO findByPhoneOrEmail(String sdt, String email) {
+        return findByPhoneOrEmail(sdt, email, 0);
+    }
+
+    public DocGiaDTO findByPhoneOrEmail(String sdt, String email, int excludeMaDocGia) {
         String cleanPhone = sdt != null ? sdt.trim() : "";
         String cleanEmail = email != null ? email.trim() : "";
 
@@ -80,17 +84,24 @@ public class DocGiaDAO {
         } else {
             sql.append("LOWER(Email) = LOWER(?)");
         }
+        if (excludeMaDocGia > 0) {
+            sql.append(" AND MaDocGia <> ?");
+        }
         sql.append(" ORDER BY TrangThai DESC, MaDocGia DESC");
 
         try (Connection conn = DBConnection.requireConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
             if (hasPhone && hasEmail) {
-                ps.setString(1, cleanPhone);
-                ps.setString(2, cleanEmail);
+                ps.setString(idx++, cleanPhone);
+                ps.setString(idx++, cleanEmail);
             } else if (hasPhone) {
-                ps.setString(1, cleanPhone);
+                ps.setString(idx++, cleanPhone);
             } else {
-                ps.setString(1, cleanEmail);
+                ps.setString(idx++, cleanEmail);
+            }
+            if (excludeMaDocGia > 0) {
+                ps.setInt(idx, excludeMaDocGia);
             }
 
             try (ResultSet rs = ps.executeQuery()) {

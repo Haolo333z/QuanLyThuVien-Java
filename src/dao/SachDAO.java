@@ -1,5 +1,6 @@
 package dao;
 
+import dto.LichSuKhoDTO;
 import dto.SachDTO;
 import utils.DBConnection;
 
@@ -7,6 +8,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -65,6 +68,24 @@ public class SachDAO {
         return list;
     }
 
+    public SachDTO getById(int maSach) {
+        String sql = "SELECT s.*, t.TenTheLoai FROM Sach s "
+                   + "JOIN TheLoai t ON s.MaTheLoai = t.MaTheLoai "
+                   + "WHERE s.MaSach = ?";
+        try (Connection conn = DBConnection.requireConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, maSach);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public boolean isIsbnExists(String isbn, int excludeMaSach) {
         if (isbn == null || isbn.trim().isEmpty()) return false;
         String sql = "SELECT 1 FROM Sach WHERE ISBN = ? AND MaSach <> ?";
@@ -82,30 +103,57 @@ public class SachDAO {
     }
 
     public boolean insert(SachDTO s) {
+        return insert(s, 0);
+    }
+
+    public boolean insert(SachDTO s, int maNV) {
         String sqlWithCols = "INSERT INTO Sach (MaTheLoai, TenSach, TacGia, NhaXuatBan, NamXuatBan, ISBN, "
                            + "SoLuongTong, SoLuongConLai, SoLuongThanhLy, TinhTrangSach, ViTriKe, TrangThai) "
                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.requireConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlWithCols)) {
-            ps.setInt(1, s.getMaTheLoai());
-            ps.setString(2, s.getTenSach());
-            ps.setString(3, s.getTacGia());
-            ps.setString(4, s.getNhaXuatBan());
-            ps.setInt(5, s.getNamXuatBan());
-            ps.setString(6, s.getIsbn() == null || s.getIsbn().isEmpty() ? null : s.getIsbn());
-            ps.setInt(7, s.getSoLuongTong());
-            ps.setInt(8, s.getSoLuongConLai());
-            ps.setInt(9, s.getSoLuongThanhLy());
-            ps.setString(10, s.getTinhTrangSach() != null ? s.getTinhTrangSach() : "Bình thường");
-            ps.setString(11, s.getViTriKe());
-            ps.setBoolean(12, s.isTrangThai());
-            return ps.executeUpdate() > 0;
+        Connection conn = null;
+        try {
+            conn = DBConnection.requireConnection();
+            conn.setAutoCommit(false);
+
+            int maSachMoi = -1;
+            try (PreparedStatement ps = conn.prepareStatement(sqlWithCols, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setInt(1, s.getMaTheLoai());
+                ps.setString(2, s.getTenSach());
+                ps.setString(3, s.getTacGia());
+                ps.setString(4, s.getNhaXuatBan());
+                ps.setInt(5, s.getNamXuatBan());
+                ps.setString(6, s.getIsbn() == null || s.getIsbn().isEmpty() ? null : s.getIsbn());
+                ps.setInt(7, s.getSoLuongTong());
+                ps.setInt(8, s.getSoLuongConLai());
+                ps.setInt(9, s.getSoLuongThanhLy());
+                ps.setString(10, s.getTinhTrangSach() != null ? s.getTinhTrangSach() : "Bình thường");
+                ps.setString(11, s.getViTriKe());
+                ps.setBoolean(12, s.isTrangThai());
+                if (ps.executeUpdate() == 0) {
+                    conn.rollback();
+                    return false;
+                }
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        maSachMoi = rs.getInt(1);
+                    }
+                }
+            }
+
+            if (maNV > 0 && maSachMoi > 0 && s.getSoLuongTong() > 0) {
+                insertLichSuKho(conn, maSachMoi, maNV, "Khởi tạo", s.getSoLuongTong(), "Khởi tạo đầu sách mới");
+            }
+            conn.commit();
+            return true;
         } catch (SQLException e) {
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
             String sqlFallback = "INSERT INTO Sach (MaTheLoai, TenSach, TacGia, NhaXuatBan, NamXuatBan, ISBN, "
                                + "SoLuongTong, SoLuongConLai, ViTriKe, TrangThai) "
                                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            try (Connection conn = DBConnection.requireConnection();
-                 PreparedStatement ps = conn.prepareStatement(sqlFallback)) {
+            try (Connection fallbackConn = DBConnection.requireConnection();
+                 PreparedStatement ps = fallbackConn.prepareStatement(sqlFallback)) {
                 ps.setInt(1, s.getMaTheLoai());
                 ps.setString(2, s.getTenSach());
                 ps.setString(3, s.getTacGia());
@@ -122,6 +170,13 @@ public class SachDAO {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
         }
         return false;
     }
@@ -185,7 +240,52 @@ public class SachDAO {
         return false;
     }
 
+    public boolean nhapThemSachTransaction(int maSach, int soLuongThem, int maNV, String ghiChu) {
+        if (maSach <= 0 || soLuongThem <= 0 || maNV <= 0) {
+            return false;
+        }
+        String sqlUpdate = "UPDATE Sach SET "
+                         + "SoLuongTong = SoLuongTong + ?, "
+                         + "SoLuongConLai = SoLuongConLai + ?, "
+                         + "TinhTrangSach = N'Bình thường', "
+                         + "TrangThai = 1 "
+                         + "WHERE MaSach = ?";
+        Connection conn = null;
+        try {
+            conn = DBConnection.requireConnection();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement ps = conn.prepareStatement(sqlUpdate)) {
+                ps.setInt(1, soLuongThem);
+                ps.setInt(2, soLuongThem);
+                ps.setInt(3, maSach);
+                if (ps.executeUpdate() == 0) {
+                    conn.rollback();
+                    return false;
+                }
+            }
+
+            insertLichSuKho(conn, maSach, maNV, "Nhập thêm", soLuongThem, ghiChu);
+            conn.commit();
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
+        }
+    }
+
     public boolean thanhLySach(int maSach, int soLuongThanhLy, String tinhTrangMoi) {
+        return thanhLySach(maSach, soLuongThanhLy, tinhTrangMoi, 0, "Thanh lý sách từ kho");
+    }
+
+    public boolean thanhLySach(int maSach, int soLuongThanhLy, String tinhTrangMoi, int maNV, String ghiChu) {
         String sql = "UPDATE Sach SET "
                    + "SoLuongConLai = SoLuongConLai - ?, "
                    + "SoLuongThanhLy = ISNULL(SoLuongThanhLy, 0) + ?, "
@@ -211,6 +311,10 @@ public class SachDAO {
                 }
             }
 
+            if (maNV > 0) {
+                insertLichSuKho(conn, maSach, maNV, "Thanh lý", soLuongThanhLy, ghiChu);
+            }
+
             conn.commit();
             return true;
         } catch (Exception e) {
@@ -224,6 +328,67 @@ public class SachDAO {
                 try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
         }
+    }
+
+    public static void insertLichSuKho(Connection conn, int maSach, int maNV, String loaiBienDong,
+                                       int soLuong, String ghiChu) throws SQLException {
+        String sql = "INSERT INTO LichSuKhoSach (MaSach, MaNV, LoaiBienDong, SoLuong, GhiChu) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, maSach);
+            ps.setInt(2, maNV);
+            ps.setString(3, loaiBienDong);
+            ps.setInt(4, soLuong);
+            ps.setString(5, ghiChu != null && !ghiChu.trim().isEmpty() ? ghiChu.trim() : null);
+            ps.executeUpdate();
+        }
+    }
+
+    public List<LichSuKhoDTO> getLichSuKho(int maSachFilter, String loaiFilter) {
+        List<LichSuKhoDTO> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT ls.*, s.TenSach, nv.HoTen AS TenNV "
+              + "FROM LichSuKhoSach ls "
+              + "JOIN Sach s ON ls.MaSach = s.MaSach "
+              + "JOIN NhanVien nv ON ls.MaNV = nv.MaNV "
+              + "WHERE 1=1 ");
+        if (maSachFilter > 0) {
+            sql.append("AND ls.MaSach = ? ");
+        }
+        String cleanLoai = loaiFilter != null ? loaiFilter.trim() : "";
+        if (!cleanLoai.isEmpty() && !"Tất cả".equalsIgnoreCase(cleanLoai)) {
+            sql.append("AND ls.LoaiBienDong = ? ");
+        }
+        sql.append("ORDER BY ls.MaLichSu DESC");
+
+        try (Connection conn = DBConnection.requireConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            if (maSachFilter > 0) {
+                ps.setInt(idx++, maSachFilter);
+            }
+            if (!cleanLoai.isEmpty() && !"Tất cả".equalsIgnoreCase(cleanLoai)) {
+                ps.setString(idx, cleanLoai);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Timestamp ts = rs.getTimestamp("NgayThucHien");
+                    list.add(new LichSuKhoDTO(
+                            rs.getInt("MaLichSu"),
+                            rs.getInt("MaSach"),
+                            rs.getString("TenSach"),
+                            rs.getInt("MaNV"),
+                            rs.getString("TenNV"),
+                            rs.getString("LoaiBienDong"),
+                            rs.getInt("SoLuong"),
+                            rs.getString("GhiChu"),
+                            ts != null ? ts.toLocalDateTime() : null
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
     }
 
     private SachDTO mapRow(ResultSet rs) throws Exception {

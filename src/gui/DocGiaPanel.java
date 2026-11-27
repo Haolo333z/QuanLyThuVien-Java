@@ -9,6 +9,7 @@ import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 public class DocGiaPanel extends JPanel {
@@ -133,7 +134,12 @@ public class DocGiaPanel extends JPanel {
                 txtMaDG.setText(val(r, 0));
                 txtHoTen.setText(val(r, 1));
                 txtNgaySinh.setText(val(r, 2));
-                cboGioiTinh.setSelectedItem(val(r, 3));
+                String gioiTinh = val(r, 3);
+                if (!gioiTinh.isEmpty()) {
+                    cboGioiTinh.setSelectedItem(gioiTinh);
+                } else {
+                    cboGioiTinh.setSelectedIndex(0);
+                }
                 txtSDT.setText(val(r, 4));
                 txtEmail.setText(val(r, 5));
                 txtDiaChi.setText(val(r, 6));
@@ -188,6 +194,11 @@ public class DocGiaPanel extends JPanel {
         }
     }
 
+    public void refreshData() {
+        txtTimKiem.setText("");
+        loadData(docGiaBUS.getAll());
+    }
+
     private LocalDate parseNgaySinh() {
         String s = txtNgaySinh.getText().trim();
         if (s.isEmpty()) return null;
@@ -215,9 +226,12 @@ public class DocGiaPanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, msg, "Lỗi", JOptionPane.WARNING_MESSAGE);
             }
-        } catch (Exception ex) {
+        } catch (DateTimeParseException ex) {
             JOptionPane.showMessageDialog(this, "Ngày sinh phải đúng định dạng yyyy-MM-dd (VD: 2005-02-15)!",
                     "Sai định dạng ngày", JOptionPane.WARNING_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Có lỗi xảy ra: " + ex.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -247,9 +261,15 @@ public class DocGiaPanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, msg, "Lỗi", JOptionPane.WARNING_MESSAGE);
             }
-        } catch (Exception ex) {
+        } catch (DateTimeParseException ex) {
             JOptionPane.showMessageDialog(this, "Ngày sinh phải đúng định dạng yyyy-MM-dd!",
                     "Sai định dạng ngày", JOptionPane.WARNING_MESSAGE);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Mã độc giả không hợp lệ!",
+                    "Lỗi dữ liệu", JOptionPane.WARNING_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Có lỗi xảy ra: " + ex.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -258,15 +278,22 @@ public class DocGiaPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn độc giả cần gia hạn thẻ!");
             return;
         }
-        int maDG = Integer.parseInt(txtMaDG.getText());
-        LocalDate hanCu = LocalDate.parse(txtNgayHetHan.getText());
-        String res = docGiaBUS.giaHanThe(maDG, hanCu);
-        if (res.startsWith("OK:")) {
-            JOptionPane.showMessageDialog(this, "Gia hạn thành công! Ngày hết hạn mới: " + res.substring(3));
-            loadData(docGiaBUS.getAll());
-            clearForm();
-        } else {
-            JOptionPane.showMessageDialog(this, res, "Lỗi", JOptionPane.ERROR_MESSAGE);
+        try {
+            int maDG = Integer.parseInt(txtMaDG.getText());
+            LocalDate hanCu = txtNgayHetHan.getText().trim().isEmpty()
+                    ? null
+                    : LocalDate.parse(txtNgayHetHan.getText().trim());
+            String res = docGiaBUS.giaHanThe(maDG, hanCu);
+            if (res.startsWith("OK:")) {
+                JOptionPane.showMessageDialog(this, "Gia hạn thành công! Ngày hết hạn mới: " + res.substring(3));
+                loadData(docGiaBUS.getAll());
+                clearForm();
+            } else {
+                JOptionPane.showMessageDialog(this, res, "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (DateTimeParseException | NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Dữ liệu thẻ độc giả không hợp lệ để gia hạn!",
+                    "Lỗi dữ liệu", JOptionPane.WARNING_MESSAGE);
         }
     }
 
